@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 
@@ -29,9 +30,10 @@ func (c Connection) Query(dbowner, dbname, sql string) (out Results, err error) 
 	data.Set("sql", base64.StdEncoding.EncodeToString([]byte(sql)))
 
 	// Run the query on the remote database
-	resp, err := http.PostForm(c.Server+"/v1/query", data)
+	var resp *http.Response
+	resp, err = http.PostForm(c.Server+"/v1/query", data)
 	if err != nil {
-		return Results{}, err
+		return
 	}
 	defer resp.Body.Close()
 
@@ -48,7 +50,10 @@ func (c Connection) Query(dbowner, dbname, sql string) (out Results, err error) 
 
 	// The query ran successfully, so prepare and return the results
 	var returnedData []com.DataRow
-	json.NewDecoder(resp.Body).Decode(&returnedData)
+	err = json.NewDecoder(resp.Body).Decode(&returnedData)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Construct the result list
 	for _, j := range returnedData {
@@ -76,7 +81,79 @@ func (c *Connection) ChangeServer(s string) {
 	c.Server = s
 }
 
-// TODO: Create function(s) for listing tables and indexes in the remote database
+// Tables returns the list of tables present in the database
+func (c Connection) Tables(dbowner, dbname string) (tbl []string, err error) {
+	// Prepare the API parameters
+	data := url.Values{}
+	data.Set("apikey", c.APIKey)
+	data.Set("dbowner", dbowner)
+	data.Set("dbname", dbname)
+
+	// Fetch the list of tables
+	var resp *http.Response
+	resp, err = http.PostForm(c.Server+"/v1/tables", data)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	// Basic error handling, depending on the status code received from the server
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// The returned status code indicates something went wrong
+		err = fmt.Errorf(resp.Status)
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		// TODO: Figure out what should be returned for other 2** status messages
+		return
+	}
+
+	// Convert the response into the list of tables
+	err = json.NewDecoder(resp.Body).Decode(&tbl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
+// Views returns the list of views present in the database
+func (c Connection) Views(dbowner, dbname string) (vws []string, err error) {
+	// Prepare the API parameters
+	data := url.Values{}
+	data.Set("apikey", c.APIKey)
+	data.Set("dbowner", dbowner)
+	data.Set("dbname", dbname)
+
+	// Fetch the list of views
+	var resp *http.Response
+	resp, err = http.PostForm(c.Server+"/v1/views", data)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	// Basic error handling, depending on the status code received from the server
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// The returned status code indicates something went wrong
+		err = fmt.Errorf(resp.Status)
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		// TODO: Figure out what should be returned for other 2** status messages
+		return
+	}
+
+	// Convert the response into the list of views
+	err = json.NewDecoder(resp.Body).Decode(&vws)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
+// TODO: Create function(s) for listing indexes in the remote database
 
 // TODO: Create function for returning a list of available databases
 
