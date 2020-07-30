@@ -6,7 +6,7 @@ type Connection struct {
 }
 
 type ResultRow struct {
-	Field []interface{}
+	Fields []string
 }
 
 type Results struct {

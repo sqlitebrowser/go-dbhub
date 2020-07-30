@@ -2,9 +2,12 @@ package dbhub
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+
+	com "github.com/sqlitebrowser/dbhub.io/common"
 )
 
 // New creates a new DBHub.io connection object.  It doesn't connect to DBHub.io to do this.
@@ -17,7 +20,7 @@ func New(key string) (Connection, error) {
 }
 
 // Query runs a SQL query (SELECT only) on the chosen database, returning the results
-func (c Connection) Query(dbowner, dbname, sql string) (Results, error) {
+func (c Connection) Query(dbowner, dbname, sql string) (out Results, err error) {
 	// Prepare the API parameters
 	data := url.Values{}
 	data.Set("apikey", c.APIKey)
@@ -26,22 +29,46 @@ func (c Connection) Query(dbowner, dbname, sql string) (Results, error) {
 	data.Set("sql", base64.StdEncoding.EncodeToString([]byte(sql)))
 
 	// Run the query on the remote database
-	res, err := http.PostForm(c.Server+"/v1/query", data)
+	resp, err := http.PostForm(c.Server+"/v1/query", data)
 	if err != nil {
 		return Results{}, err
 	}
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
+	defer resp.Body.Close()
+
+	// Basic error handling, depending on the status code received from the server
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// The returned status code indicates something went wrong
-		return Results{}, fmt.Errorf(res.Status)
-	}
-	if res.StatusCode == 200 {
-		// The query ran successfully, so prepare and return the results
-		// TODO: TBD
-		fmt.Printf("Results: %v\n", res)
+		return Results{}, fmt.Errorf(resp.Status)
 	}
 
-	// TODO: Figure out what should be returned here
-	return Results{}, nil
+	if resp.StatusCode != 200 {
+		// TODO: Figure out what should be returned for other 2** status messages
+		return
+	}
+
+	// The query ran successfully, so prepare and return the results
+	var returnedData []com.DataRow
+	json.NewDecoder(resp.Body).Decode(&returnedData)
+
+	// Construct the result list
+	for _, j := range returnedData {
+
+		// Construct a single row
+		var oneRow ResultRow
+		for _, l := range j {
+			// Float, integer, and text fields are added to the output
+			switch l.Type {
+			case com.Float, com.Integer, com.Text:
+				oneRow.Fields = append(oneRow.Fields, fmt.Sprint(l.Value))
+			default:
+				// All other value types are just output as an empty string (for now)
+				oneRow.Fields = append(oneRow.Fields, "")
+			}
+		}
+		// Add the row to the output list
+		out.Rows = append(out.Rows, oneRow)
+	}
+	return
 }
 
 // ChangeServer changes the address all Queries will be sent to.  Useful for testing and development.
