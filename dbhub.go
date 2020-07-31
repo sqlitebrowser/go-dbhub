@@ -61,8 +61,10 @@ func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err 
 	return
 }
 
-// Query runs a SQL query (SELECT only) on the chosen database, returning the results
-func (c Connection) Query(dbowner, dbname, sql string) (out Results, err error) {
+// Query runs a SQL query (SELECT only) on the chosen database, returning the results.
+// The "blobBase64" boolean specifies whether BLOB data fields should be base64 encoded in the output, or just skipped
+// using an empty string as a placeholder.
+func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (out Results, err error) {
 	// Prepare the API parameters
 	data := url.Values{}
 	data.Set("apikey", c.APIKey)
@@ -102,10 +104,17 @@ func (c Connection) Query(dbowner, dbname, sql string) (out Results, err error) 
 		// Construct a single row
 		var oneRow ResultRow
 		for _, l := range j {
-			// Float, integer, and text fields are added to the output
 			switch l.Type {
 			case com.Float, com.Integer, com.Text:
+				// Float, integer, and text fields are added to the output
 				oneRow.Fields = append(oneRow.Fields, fmt.Sprint(l.Value))
+			case com.Binary:
+				// BLOB data is optionally Base64 encoded, or just skipped (using an empty string as placeholder)
+				if blobBase64 {
+					oneRow.Fields = append(oneRow.Fields, base64.StdEncoding.EncodeToString([]byte(l.Value.(string))))
+				} else {
+					oneRow.Fields = append(oneRow.Fields, "")
+				}
 			default:
 				// All other value types are just output as an empty string (for now)
 				oneRow.Fields = append(oneRow.Fields, "")
