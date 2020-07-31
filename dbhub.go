@@ -25,6 +25,43 @@ func (c *Connection) ChangeServer(s string) {
 	c.Server = s
 }
 
+// Columns returns the column information for a given table or view
+func (c Connection) Columns(dbowner, dbname, table string) (columns []com.APIJSONColumn, err error) {
+	// Prepare the API parameters
+	data := url.Values{}
+	data.Set("apikey", c.APIKey)
+	data.Set("dbowner", dbowner)
+	data.Set("dbname", dbname)
+	data.Set("table", table)
+
+	// Fetch the list of columns
+	var resp *http.Response
+	resp, err = http.PostForm(c.Server+"/v1/columns", data)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	// Basic error handling, depending on the status code received from the server
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// The returned status code indicates something went wrong
+		err = fmt.Errorf(resp.Status)
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		// TODO: Figure out what should be returned for other 2** status messages
+		return
+	}
+
+	// Convert the response into the list of columns
+	err = json.NewDecoder(resp.Body).Decode(&columns)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
 // Indexes returns the list of indexes present in the database
 func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err error) {
 	// Prepare the API parameters

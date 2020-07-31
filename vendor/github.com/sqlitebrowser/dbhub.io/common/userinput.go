@@ -2,6 +2,7 @@
 package common
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -9,7 +10,42 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
+
+// Checks if a given string is unicode, and safe for using in SQLite queries (eg no SQLite control characters)
+func CheckUnicode(rawInput string) (str string, err error) {
+	var decoded []byte
+	decoded, err = base64.StdEncoding.DecodeString(rawInput)
+	if err != nil {
+		return
+	}
+
+	// Ensure the decoded string is valid UTF-8
+	if !utf8.Valid(decoded) {
+		err = fmt.Errorf("SQL string contains invalid characters: '%v'", err)
+		return
+	}
+
+	// Check for the presence of unicode control characters and similar in the decoded string
+	invalidChar := false
+	decodedStr := string(decoded)
+	for _, j := range decodedStr {
+		if unicode.IsControl(j) || unicode.Is(unicode.C, j) {
+			if j != 9 && j != 10 { // 9 == tab, 10 == new line, which are safe to allow.  Everything else should (probably) raise an error
+				invalidChar = true
+			}
+		}
+	}
+	if invalidChar {
+		err = fmt.Errorf("SQL string contains invalid characters: '%v'", err)
+		return
+	}
+
+	// No errors, so return the string
+	return decodedStr, nil
+}
 
 // Extracts a database name from GET or POST/PUT data.
 func GetDatabase(r *http.Request, allowGet bool) (string, error) {
@@ -116,19 +152,56 @@ func GetFormLicence(r *http.Request) (licenceName string, err error) {
 	return licenceName, nil
 }
 
-// Returns the source URL (if any) present in the form data
-func GetFormSourceURL(r *http.Request) (sourceURL string, err error) {
-	// Validate the source URL
-	su := r.PostFormValue("sourceurl")
-	if su != "" {
-		err = Validate.Var(su, "url,min=5,max=255") // 255 seems like a reasonable first guess
-		if err != nil {
-			return sourceURL, errors.New("Validation failed for source URL field")
-		}
-		sourceURL = su
+// Return the database owner, database name, and commit (if any) present in the form data.
+func GetFormODC(r *http.Request) (string, string, string, error) {
+	// Extract the database owner name
+	userName, err := GetFormOwner(r, false)
+	if err != nil {
+		return "", "", "", err
 	}
 
-	return sourceURL, err
+	// Extract the database name
+	dbName, err := GetDatabase(r, false)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	// Extract the commit string
+	commitID, err := GetFormCommit(r)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	return userName, dbName, commitID, nil
+}
+
+// Return the database owner present in the GET or POST/PUT data.
+func GetFormOwner(r *http.Request, allowGet bool) (string, error) {
+	// Retrieve the variable from the GET or POST/PUT data
+	var o, dbOwner string
+	if allowGet {
+		o = r.FormValue("dbowner")
+	} else {
+		o = r.PostFormValue("dbowner")
+	}
+
+	// If no database owner given, return
+	if o == "" {
+		return "", nil
+	}
+
+	// Unescape, then validate the owner name
+	dbOwner, err := url.QueryUnescape(o)
+	if err != nil {
+		return "", err
+	}
+	err = ValidateUser(dbOwner)
+	if err != nil {
+		log.Printf("Validation failed for database owner name: %s", err)
+		return "", err
+	}
+
+	return dbOwner, nil
 }
 
 // Return the requested release name, from get or post data.
@@ -151,6 +224,21 @@ func GetFormRelease(r *http.Request) (release string, err error) {
 	return c, nil
 }
 
+// Returns the source URL (if any) present in the form data
+func GetFormSourceURL(r *http.Request) (sourceURL string, err error) {
+	// Validate the source URL
+	su := r.PostFormValue("sourceurl")
+	if su != "" {
+		err = Validate.Var(su, "url,min=5,max=255") // 255 seems like a reasonable first guess
+		if err != nil {
+			return sourceURL, errors.New("Validation failed for source URL field")
+		}
+		sourceURL = su
+	}
+
+	return sourceURL, err
+}
+
 // Return the requested tag name, from get or post data.
 func GetFormTag(r *http.Request) (tag string, err error) {
 	// If no tag was given in the input, returns an empty string
@@ -169,6 +257,34 @@ func GetFormTag(r *http.Request) (tag string, err error) {
 		return "", errors.New(fmt.Sprintf("Invalid tag name: '%v'", c))
 	}
 	return c, nil
+}
+
+// Return the table name present in the GET or POST/PUT data.
+func GetFormTable(r *http.Request, allowGet bool) (string, error) {
+	// Retrieve the variable from the GET or POST/PUT data
+	var t, table string
+	if allowGet {
+		t = r.FormValue("table")
+	} else {
+		t = r.PostFormValue("table")
+	}
+
+	// If no table name given, return
+	if t == "" {
+		return "", nil
+	}
+
+	// Unescape, then validate the owner name
+	table, err := url.QueryUnescape(t)
+	if err != nil {
+		return "", err
+	}
+	err = ValidatePGTable(table)
+	if err != nil {
+		log.Printf("Validation failed for table name: %s", err)
+		return "", err
+	}
+	return table, nil
 }
 
 // Return the username, database, and commit (if any) present in the form data.

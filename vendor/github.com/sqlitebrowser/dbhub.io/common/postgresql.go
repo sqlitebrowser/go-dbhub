@@ -3,12 +3,14 @@ package common
 import (
 	"crypto/md5"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -29,13 +31,19 @@ func AddDefaultUser() error {
 	// Add the new user to the database
 	dbQuery := `
 		INSERT INTO users (auth0_id, user_name, email, password_hash, client_cert, display_name)
-		VALUES ($1, $2, $3, $4, $5, $6)`
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (user_name)
+			DO NOTHING`
 	_, err := pdb.Exec(dbQuery, RandomString(16), "default", "default@dbhub.io", RandomString(16), "",
 		"Default system user")
 	if err != nil {
+		log.Printf("Error when adding the default user to the database: %v\n", err)
 		// For now, don't bother logging a failure here.  This *might* need changing later on
 		return err
 	}
+
+	// Log addition of the default user
+	log.Println("Default user added")
 	return nil
 }
 
@@ -49,10 +57,13 @@ func AddUser(auth0ID string, userName string, password string, email string, dis
 	}
 
 	// Generate a new HTTPS client certificate for the user
-	cert, err := GenerateClientCert(userName)
-	if err != nil {
-		log.Printf("Error when generating client certificate for '%s': %v\n", userName, err)
-		return err
+	var cert []byte
+	if Conf.Sign.Enabled {
+		cert, err = GenerateClientCert(userName)
+		if err != nil {
+			log.Printf("Error when generating client certificate for '%s': %v\n", userName, err)
+			return err
+		}
 	}
 
 	// If the display name or avatar URL are an empty string, we insert a NULL instead
@@ -82,6 +93,41 @@ func AddUser(auth0ID string, userName string, password string, email string, dis
 	// Log the user registration
 	log.Printf("User registered: '%s' Email: '%s'\n", userName, email)
 
+	return nil
+}
+
+// Saves a new API key to the PostgreSQL database.
+func APIKeySave(key string, loggedInUser string, dateCreated time.Time) error {
+	// Make sure the API key isn't already in the database
+	dbQuery := `
+		SELECT count(key)
+		FROM api_keys
+		WHERE key = $1`
+	var keyCount int
+	err := pdb.QueryRow(dbQuery, key).Scan(&keyCount)
+	if err != nil {
+		log.Printf("Checking if an API key exists failed: %v\n", err)
+		return err
+	}
+	if keyCount != 0 {
+		// API key is already in our system
+		log.Printf("Duplicate API key (%s) generated for user '%s'\n", key, loggedInUser)
+		return fmt.Errorf("API generator created duplicate key.  Try again, just in case...")
+	}
+
+	// Add the new API key to the database
+	dbQuery = `
+		INSERT INTO api_keys (user_id, key, date_created)
+		SELECT (SELECT user_id FROM users WHERE lower(user_name) = lower($1)), $2, $3`
+	commandTag, err := pdb.Exec(dbQuery, loggedInUser, key, dateCreated)
+	if err != nil {
+		log.Printf("Adding API key to database failed: %v\n", err)
+		return err
+	}
+	if numRows := commandTag.RowsAffected(); numRows != 1 {
+		log.Printf("Wrong number of rows (%d) affected when adding API key: %v, username: %v\n", numRows, key,
+			loggedInUser)
+	}
 	return nil
 }
 
@@ -356,7 +402,7 @@ func databaseID(dbOwner string, dbFolder string, dbName string) (dbID int, err e
 
 // Return a list of 1) users with public databases, 2) along with the logged in users' most recently modified database
 // (including their private one(s)).
-func DB4SDefaultList(loggedInUser string) (map[string]UserInfo, error) {
+func DB4SDefaultList(loggedInUser string) (UserInfoSlice, error) {
 	// Retrieve the list of all users with public databases
 	dbQuery := `
 		WITH public_dbs AS (
@@ -374,14 +420,15 @@ func DB4SDefaultList(loggedInUser string) (map[string]UserInfo, error) {
 		SELECT user_name, last_modified
 		FROM public_users AS pu, users
 		WHERE users.user_id = pu.user_id
+			AND users.user_name != $1
 		ORDER BY last_modified DESC`
-	rows, err := pdb.Query(dbQuery)
+	rows, err := pdb.Query(dbQuery, loggedInUser)
 	if err != nil {
 		log.Printf("Database query failed: %v\n", err)
 		return nil, err
 	}
 	defer rows.Close()
-	list := make(map[string]UserInfo)
+	unsorted := make(map[string]UserInfo)
 	for rows.Next() {
 		var oneRow UserInfo
 		err = rows.Scan(&oneRow.Username, &oneRow.LastModified)
@@ -389,8 +436,15 @@ func DB4SDefaultList(loggedInUser string) (map[string]UserInfo, error) {
 			log.Printf("Error list of users with public databases: %v\n", err)
 			return nil, err
 		}
-		list[oneRow.Username] = oneRow
+		unsorted[oneRow.Username] = oneRow
 	}
+
+	// Sort the list by last_modified order, from most recent to oldest
+	publicList := make(UserInfoSlice, 0, len(unsorted))
+	for _, j := range unsorted {
+		publicList = append(publicList, j)
+	}
+	sort.Sort(publicList)
 
 	// Retrieve the last modified timestamp for the most recent database of the logged in user (if they have any)
 	dbQuery = `
@@ -411,23 +465,33 @@ func DB4SDefaultList(loggedInUser string) (map[string]UserInfo, error) {
 		)
 		SELECT last_modified
 		FROM most_recent_user_db`
+	userRow := UserInfo{Username: loggedInUser}
 	rows, err = pdb.Query(dbQuery, loggedInUser)
 	if err != nil {
 		log.Printf("Database query failed: %v\n", err)
 		return nil, err
 	}
 	defer rows.Close()
+	userHasDB := false
 	for rows.Next() {
-		oneRow := UserInfo{Username: loggedInUser}
-		err = rows.Scan(&oneRow.LastModified)
+		userHasDB = true
+		err = rows.Scan(&userRow.LastModified)
 		if err != nil {
 			log.Printf("Error retrieving database list for user: %v\n", err)
 			return nil, err
 		}
-		list[oneRow.Username] = oneRow
 	}
 
-	return list, nil
+	// If the user doesn't have any databases, just return the list of users with public databases
+	if !userHasDB {
+		return publicList, nil
+	}
+
+	// The user does have at least one database, so include them at the top of the list
+	completeList := make(UserInfoSlice, 0, len(unsorted)+1)
+	completeList = append(completeList, userRow)
+	completeList = append(completeList, publicList...)
+	return completeList, nil
 }
 
 // Retrieve the details for a specific database
@@ -1785,6 +1849,51 @@ func GetBranches(dbOwner string, dbFolder string, dbName string) (branches map[s
 	return branches, nil
 }
 
+// Returns the list of API keys for a user.
+func GetAPIKeys(user string) ([]APIKey, error) {
+	dbQuery := `
+		SELECT key, date_created
+		FROM api_keys
+		WHERE user_id = (
+				SELECT user_id
+				FROM users
+				WHERE lower(user_name) = lower($1)
+			)`
+	rows, err := pdb.Query(dbQuery, user)
+	if err != nil {
+		log.Printf("Database query failed: %v\n", err)
+		return nil, err
+	}
+	defer rows.Close()
+	var keys []APIKey
+	for rows.Next() {
+		var key string
+		var dateCreated time.Time
+		err = rows.Scan(&key, &dateCreated)
+		if err != nil {
+			log.Printf("Error retrieving API key list: %v\n", err)
+			return nil, err
+		}
+		keys = append(keys, APIKey{Key: key, DateCreated: dateCreated})
+	}
+	return keys, nil
+}
+
+// Returns the owner of a given API key.  Returns an empty string if the key has no known owner.
+func GetAPIKeyUser(key string) (user string, err error) {
+	dbQuery := `
+		SELECT user_name
+		FROM api_keys AS api, users
+		WHERE api.key = $1
+			AND api.user_id = users.user_id`
+	err = pdb.QueryRow(dbQuery, key).Scan(&user)
+	if err != nil {
+		log.Printf("Looking up owner for API key '%s' failed: %v\n", key, err)
+		return
+	}
+	return
+}
+
 // Retrieves the full commit list for a database.
 func GetCommitList(dbOwner string, dbFolder string, dbName string) (map[string]CommitEntry, error) {
 	dbQuery := `
@@ -2146,6 +2255,126 @@ func GetUsernameFromEmail(email string) (userName string, avatarURL string, err 
 	return
 }
 
+// Retrieves a saved set of visualisation query results
+func GetVisualisationData(dbOwner string, dbFolder string, dbName string, commitID string, hash string) (data []VisRowV1, ok bool, err error) {
+	dbQuery := `
+		WITH u AS (
+			SELECT user_id
+			FROM users
+			WHERE lower(user_name) = lower($1)
+		), d AS (
+			SELECT db.db_id
+			FROM sqlite_databases AS db, u
+			WHERE db.user_id = u.user_id
+				AND folder = $2
+				AND db_name = $3
+		)
+		SELECT results
+		FROM vis_result_cache as vis_cache, u, d
+		WHERE vis_cache.db_id = d.db_id
+			AND vis_cache.user_id = u.user_id
+			AND vis_cache.commit_id = $4
+			AND vis_cache.hash = $5`
+	e := pdb.QueryRow(dbQuery, dbOwner, dbFolder, dbName, commitID, hash).Scan(&data)
+	if e != nil {
+		if e == pgx.ErrNoRows {
+			// There weren't any saved parameters for this database visualisation
+			return
+		}
+
+		// A real database error occurred
+		err = e
+		log.Printf("Checking if a database exists failed: %v\n", e)
+		return
+	}
+
+	// Data was successfully retrieved
+	ok = true
+	return
+}
+
+// Retrieves a saved set of visualisation parameters
+func GetVisualisationParams(dbOwner string, dbFolder string, dbName string, visName string) (params VisParamsV2, ok bool, err error) {
+	dbQuery := `
+		WITH u AS (
+			SELECT user_id
+			FROM users
+			WHERE lower(user_name) = lower($1)
+		), d AS (
+			SELECT db.db_id
+			FROM sqlite_databases AS db, u
+			WHERE db.user_id = u.user_id
+				AND folder = $2
+				AND db_name = $3
+		)
+		SELECT parameters
+		FROM vis_params as vis, u, d
+		WHERE vis.db_id = d.db_id
+			AND vis.user_id = u.user_id
+			AND vis.name = $4`
+	e := pdb.QueryRow(dbQuery, dbOwner, dbFolder, dbName, visName).Scan(&params)
+	if e != nil {
+		if e == pgx.ErrNoRows {
+			// There weren't any saved parameters for this database visualisation
+			return
+		}
+
+		// A real database error occurred
+		err = e
+		log.Printf("Retrieving visualisation parameters for '%s%s%s', visualisation '%s' failed: %v\n", dbOwner, dbFolder, dbName, visName, e)
+		return
+	}
+
+	// Parameters were successfully retrieved
+	ok = true
+	return
+}
+
+// Returns the list of saved visualisations for a given database
+func GetVisualisations(dbOwner, dbFolder, dbName string) (visNames []string, err error) {
+	dbQuery := `
+		WITH u AS (
+			SELECT user_id
+			FROM users
+			WHERE lower(user_name) = lower($1)
+		), d AS (
+			SELECT db.db_id
+			FROM sqlite_databases AS db, u
+			WHERE db.user_id = u.user_id
+				AND folder = $2
+				AND db_name = $3
+		)
+		SELECT name
+		FROM vis_params as vis, u, d
+		WHERE vis.db_id = d.db_id
+			AND vis.user_id = u.user_id
+		ORDER BY name`
+	rows, e := pdb.Query(dbQuery, dbOwner, dbFolder, dbName)
+	if e != nil {
+		if e == pgx.ErrNoRows {
+			// There weren't any saved visualisations for this database
+			return
+		}
+
+		// A real database error occurred
+		err = e
+		log.Printf("Retrieving visualisation list for '%s%s%s' failed: %v\n", dbOwner, dbFolder, dbName, e)
+		return
+	}
+	defer rows.Close()
+
+	var s string
+	for rows.Next() {
+		err = rows.Scan(&s)
+		if err != nil {
+			log.Printf("Error retrieving visualisation list: %v", err.Error())
+			return
+		}
+		visNames = append(visNames, s)
+	}
+	return
+}
+
 // Increments the download count for a database
 func IncrementDownloadCount(dbOwner string, dbFolder string, dbName string) error {
 	dbQuery := `
@@ -2169,6 +2398,46 @@ func IncrementDownloadCount(dbOwner string, dbFolder string, dbName string) erro
 			numRows, dbOwner, dbFolder, dbName)
 		log.Printf(errMsg)
 		return errors.New(errMsg)
+	}
+	return nil
+}
+
+// Create a DB4S default browse list entry
+func LogDB4SConnect(userAcc string, ipAddr string, userAgent string, downloadDate time.Time) error {
+	if Conf.DB4S.Debug {
+		log.Printf("User '%s' just connected with '%s' and generated the default browse list\n", userAcc, userAgent)
+	}
+
+	// If the user account isn't "public", then we look up the user id and store the info with the request
+	userID := 0
+	if userAcc != "public" {
+		dbQuery := `
+			SELECT user_id
+			FROM users
+			WHERE user_name = $1`
+
+		err := pdb.QueryRow(dbQuery, userAcc).Scan(&userID)
+		if err != nil {
+			log.Printf("Looking up the user ID failed: %v\n", err)
+			return err
+		}
+		if userID == 0 {
+			// The username wasn't found in our system (!!!)
+			return fmt.Errorf("The user wasn't found in our system!")
+		}
+	}
+
+	// Store the high level connection info, so we can check for growth over time
+	dbQuery := `
+		INSERT INTO db4s_connects (user_id, ip_addr, user_agent, connect_date)
+		VALUES ($1, $2, $3, $4)`
+	commandTag, err := pdb.Exec(dbQuery, userID, ipAddr, userAgent, downloadDate)
+	if err != nil {
+		log.Printf("Storing record of DB4S connection failed: %v\n", err)
+		return err
+	}
+	if numRows := commandTag.RowsAffected(); numRows != 1 {
+		log.Printf("Wrong number of rows (%v) affected while storing DB4S connection record for user '%v'\n", numRows, userAcc)
 	}
 	return nil
 }
@@ -2212,6 +2481,62 @@ func LogDownload(dbOwner string, dbFolder string, dbName string, loggedInUser st
 	return nil
 }
 
+// Add memory allocation stats for the execution run of a user supplied SQLite query
+func LogSQLiteQueryAfter(insertID, memUsed, memHighWater int64) (err error) {
+	dbQuery := `
+		UPDATE vis_query_runs
+		SET memory_used = $2, memory_high_water = $3
+		WHERE query_run_id = $1`
+	commandTag, err := pdb.Exec(dbQuery, insertID, memUsed, memHighWater)
+	if err != nil {
+		log.Printf("Adding memory stats for SQLite query run '%d' failed: %v\n", insertID, err)
+		return err
+	}
+	if numRows := commandTag.RowsAffected(); numRows != 1 {
+		log.Printf("Wrong number of rows (%v) affected while adding memory stats for SQLite query run '%d'\n",
+			numRows, insertID)
+	}
+	return nil
+}
+
+// Log the basic info for a user supplied SQLite query
+func LogSQLiteQueryBefore(source, dbOwner, dbFolder, dbName, loggedInUser, ipAddr, userAgent, query string) (int64, error) {
+	// If the user isn't logged in, use a NULL value for that column
+	var queryUser pgx.NullString
+	if loggedInUser != "" {
+		queryUser.String = loggedInUser
+		queryUser.Valid = true
+	}
+
+	// Base64 encode the SQLite query string, just to be as safe as possible
+	encodedQuery := base64.StdEncoding.EncodeToString([]byte(query))
+
+	// Store the query details
+	dbQuery := `
+		WITH d AS (
+			SELECT db.db_id, db.folder, db.db_name
+			FROM sqlite_databases AS db
+			WHERE user_id = (
+					SELECT user_id
+					FROM users
+					WHERE lower(user_name) = lower($1)
+				)
+				AND db.folder = $2
+				AND db.db_name = $3
+		)
+		INSERT INTO vis_query_runs (db_id, user_id, ip_addr, user_agent, query_string, source)
+		SELECT (SELECT db_id FROM d), (SELECT user_id FROM users WHERE lower(user_name) = lower($4)), $5, $6, $7, $8
+		RETURNING query_run_id`
+	var insertID int64
+	err := pdb.QueryRow(dbQuery, dbOwner, dbFolder, dbName, queryUser, ipAddr, userAgent, encodedQuery, source).Scan(&insertID)
+	if err != nil {
+		log.Printf("Storing record of user SQLite query '%v' on '%s%s%s' failed: %v\n", encodedQuery, dbOwner,
+			dbFolder, dbName, err)
+		return 0, err
+	}
+	return insertID, nil
+}
+
 // Create an upload log entry
 func LogUpload(dbOwner string, dbFolder string, dbName string, loggedInUser string, ipAddr string, serverSw string,
 	userAgent string, uploadDate time.Time, sha string) error {
@@ -2252,14 +2577,12 @@ func LogUpload(dbOwner string, dbFolder string, dbName string, loggedInUser stri
 }
 
 // Return the Minio bucket and ID for a given database. dbOwner, dbFolder, & dbName are from owner/folder/database URL
-// fragment, // loggedInUser is the name for the currently logged in user, for access permission check.  Use an empty
+// fragment, loggedInUser is the name for the currently logged in user, for access permission check.  Use an empty
 // string ("") as the loggedInUser parameter if the true value isn't set or known.
 // If the requested database doesn't exist, or the loggedInUser doesn't have access to it, then an error will be
 // returned.
 func MinioLocation(dbOwner string, dbFolder string, dbName string, commitID string, loggedInUser string) (minioBucket string,
 	minioID string, lastModified time.Time, err error) {
-
-	// TODO: This will likely need updating to query the "database_files" table to retrieve the Minio server name
 
 	// If no commit was provided, we grab the default one
 	if commitID == "" {
@@ -2293,7 +2616,8 @@ func MinioLocation(dbOwner string, dbFolder string, dbName string, commitID stri
 	var sha, mod string
 	err = pdb.QueryRow(dbQuery, dbOwner, dbFolder, dbName, commitID).Scan(&sha, &mod)
 	if err != nil {
-		log.Printf("Error retrieving MinioID for %s/%s version %v: %v\n", dbOwner, dbName, commitID, err)
+		log.Printf("Error retrieving MinioID for '%s/%s' version '%v' by logged in user '%v': %v\n", dbOwner,
+			dbName, commitID, loggedInUser, err)
 		return // Bucket and ID are still the initial default empty string
 	}
 
@@ -4338,6 +4662,95 @@ func ViewCount(dbOwner string, dbFolder string, dbName string) (viewCount int, e
 	if err != nil {
 		log.Printf("Retrieving view count for '%s%s%s' failed: %v\n", dbOwner, dbFolder, dbName, err)
 		return 0, err
+	}
+	return
+}
+
+// Deletes a set of visualisation parameters
+func VisualisationDeleteParams(dbOwner string, dbFolder string, dbName string, visName string) (err error) {
+	var commandTag pgx.CommandTag
+	dbQuery := `
+		WITH u AS (
+			SELECT user_id
+			FROM users
+			WHERE lower(user_name) = lower($1)
+		), d AS (
+			SELECT db.db_id
+			FROM sqlite_databases AS db, u
+			WHERE db.user_id = u.user_id
+				AND folder = $2
+				AND db_name = $3
+		)
+		DELETE FROM vis_params WHERE user_id = (SELECT user_id FROM u) AND db_id = (SELECT db_id FROM d) AND name = $4`
+	commandTag, err = pdb.Exec(dbQuery, dbOwner, dbFolder, dbName, visName)
+	if err != nil {
+		log.Printf("Deleting visualisation '%s' for database '%s%s%s' failed: %v\n", visName, dbOwner, dbFolder, dbName, err)
+		return err
+	}
+	if numRows := commandTag.RowsAffected(); numRows != 1 {
+		log.Printf("Wrong number of rows (%v) affected while deleting visualisation '%s' for database '%s%s%s'\n", numRows, visName, dbOwner, dbFolder, dbName)
+	}
+	return
+}
+
+// Saves visualisation result data for later retrieval
+func VisualisationSaveData(dbOwner string, dbFolder string, dbName string, commitID string, hash string, visData []VisRowV1) (err error) {
+	var commandTag pgx.CommandTag
+	dbQuery := `
+		WITH u AS (
+			SELECT user_id
+			FROM users
+			WHERE lower(user_name) = lower($1)
+		), d AS (
+			SELECT db.db_id
+			FROM sqlite_databases AS db, u
+			WHERE db.user_id = u.user_id
+				AND folder = $2
+				AND db_name = $3
+		)
+		INSERT INTO vis_result_cache (user_id, db_id, commit_id, hash, results)
+		SELECT (SELECT user_id FROM u), (SELECT db_id FROM d), $4, $5, $6
+		ON CONFLICT (db_id, user_id, commit_id, hash)
+			DO UPDATE
+			SET results = $6`
+	commandTag, err = pdb.Exec(dbQuery, dbOwner, dbFolder, dbName, commitID, hash, visData)
+	if err != nil {
+		log.Printf("Saving visualisation data for database '%s%s%s', commit '%s', hash '%s' failed: %v\n", dbOwner, dbFolder, dbName, commitID, hash, err)
+		return err
+	}
+	if numRows := commandTag.RowsAffected(); numRows != 1 {
+		log.Printf("Wrong number of rows (%v) affected while saving visualisation data for database '%s%s%s', commit '%s', hash '%s'\n", numRows, dbOwner, dbFolder, dbName, commitID, hash)
+	}
+	return
+}
+
+// Saves a set of visualisation parameters for later retrieval
+func VisualisationSaveParams(dbOwner string, dbFolder string, dbName string, visName string, visParams VisParamsV2) (err error) {
+	var commandTag pgx.CommandTag
+	dbQuery := `
+		WITH u AS (
+			SELECT user_id
+			FROM users
+			WHERE lower(user_name) = lower($1)
+		), d AS (
+			SELECT db.db_id
+			FROM sqlite_databases AS db, u
+			WHERE db.user_id = u.user_id
+				AND folder = $2
+				AND db_name = $3
+		)
+		INSERT INTO vis_params (user_id, db_id, name, parameters)
+		SELECT (SELECT user_id FROM u), (SELECT db_id FROM d), $4, $5
+		ON CONFLICT (db_id, user_id, name)
+			DO UPDATE
+			SET parameters = $5`
+	commandTag, err = pdb.Exec(dbQuery, dbOwner, dbFolder, dbName, visName, visParams)
+	if err != nil {
+		log.Printf("Saving visualisation '%s' for database '%s%s%s' failed: %v\n", visName, dbOwner, dbFolder, dbName, err)
+		return err
+	}
+	if numRows := commandTag.RowsAffected(); numRows != 1 {
+		log.Printf("Wrong number of rows (%v) affected while saving visualisation '%s' for database '%s%s%s'\n", numRows, visName, dbOwner, dbFolder, dbName)
 	}
 	return
 }

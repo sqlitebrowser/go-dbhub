@@ -57,12 +57,22 @@ const MaxLicenceSize = 1
 //        -> Minio filename: "5a737156147fbd0a44323a895d18ade79d4db521564d1b0dbb8764cbbc"
 const MinioFolderChars = 6
 
+type QuerySource int
+
+const (
+	WebUI QuerySource = iota
+	DB4S
+	Visualisation
+	API
+	Internal
+)
+
 // ************************
 // Configuration file types
 
 // Configuration file
 type TomlConfig struct {
-	Admin       AdminInfo
+	Api         ApiInfo
 	Auth0       Auth0Info
 	DB4S        DB4SInfo
 	Environment EnvInfo
@@ -76,12 +86,14 @@ type TomlConfig struct {
 	Web         WebInfo
 }
 
-// Config info for the admin server
-type AdminInfo struct {
-	Certificate    string
+// Config info for the API server
+type ApiInfo struct {
+	BaseDir        string `toml:"base_dir"`
+	BindAddress    string `toml:"bind_address"`
+	Certificate    string `toml:"certificate"`
 	CertificateKey string `toml:"certificate_key"`
-	HTTPS          bool
-	Server         string
+	RequestLog     string `toml:"request_log"`
+	ServerName     string `toml:"server_name"`
 }
 
 // Auth0 connection parameters
@@ -96,6 +108,7 @@ type DB4SInfo struct {
 	CAChain        string `toml:"ca_chain"`
 	Certificate    string
 	CertificateKey string `toml:"certificate_key"`
+	Debug          bool
 	Port           int
 	Server         string
 }
@@ -107,7 +120,8 @@ type DiskCacheInfo struct {
 
 // Environment info
 type EnvInfo struct {
-	Environment string
+	Environment  string
+	UserOverride string `toml:"user_override"`
 }
 
 // Event processing loop
@@ -151,6 +165,7 @@ type PGInfo struct {
 // Used for signing DB4S client certificates
 type SigningInfo struct {
 	CertDaysValid    int    `toml:"cert_days_valid"`
+	Enabled          bool   `toml:"enabled"`
 	IntermediateCert string `toml:"intermediate_cert"`
 	IntermediateKey  string `toml:"intermediate_key"`
 }
@@ -180,6 +195,23 @@ type ActivityStats struct {
 	Starred   []ActivityRow
 	Uploads   []UploadRow
 	Viewed    []ActivityRow
+}
+
+// APIJSONColumn is a copy of the Column type from github.com/gwenn/gosqlite, but including JSON field name info
+type APIJSONColumn struct {
+	Cid       int    `json:"column_id"`
+	Name      string `json:"name"`
+	DataType  string `json:"data_type"`
+	NotNull   bool   `json:"not_null"`
+	DfltValue string `json:"default_value"`
+	Pk        int    `json:"primary_key"`
+	Autoinc   bool   `json:"autoinc"`
+	CollSeq   string `json:"collation_seq"`
+}
+
+type APIKey struct {
+	Key         string    `json:"key"`
+	DateCreated time.Time `json:"date_created"`
 }
 
 type Auth0Set struct {
@@ -364,6 +396,10 @@ type ForkEntry struct {
 	Deleted    bool       `json:"deleted"`
 }
 
+type JsonError struct {
+	Error string `json:"error"`
+}
+
 type LicenceEntry struct {
 	FileFormat string `json:"file_format"`
 	FullName   string `json:"full_name"`
@@ -467,16 +503,19 @@ type UploadRow struct {
 	UploadDate time.Time `json:"upload_date"`
 }
 
-type WhereClause struct {
-	Column string
-	Type   string
-	Value  string
+// For sorting a UserInfo list by Last Modified date descending
+type UserInfoSlice []UserInfo
+
+func (u UserInfoSlice) Len() int {
+	return len(u)
 }
 
-type UserInfo struct {
-	FullName     string `json:"full_name"`
-	LastModified time.Time
-	Username     string
+func (u UserInfoSlice) Less(i, j int) bool {
+	return u[i].LastModified.After(u[j].LastModified) // Swap to Before() for an ascending list
+}
+
+func (u UserInfoSlice) Swap(i, j int) {
+	u[i], u[j] = u[j], u[i]
 }
 
 type UserDetails struct {
@@ -489,4 +528,30 @@ type UserDetails struct {
 	PHash       []byte
 	PVerify     string
 	Username    string
+}
+
+type UserInfo struct {
+	FullName     string `json:"full_name"`
+	LastModified time.Time
+	Username     string
+}
+
+type VisParamsV2 struct {
+	ChartType   string `json:"chart_type"`
+	ShowXLabel  bool   `json:"show_x_label"`
+	ShowYLabel  bool   `json:"show_y_label"`
+	SQL         string `json:"sql"`
+	XAXisColumn string `json:"x_axis_label"`
+	YAXisColumn string `json:"y_axis_label"`
+}
+
+type VisRowV1 struct {
+	Name  string
+	Value int
+}
+
+type WhereClause struct {
+	Column string
+	Type   string
+	Value  string
 }
