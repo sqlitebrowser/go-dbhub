@@ -20,6 +20,47 @@ func New(key string) (Connection, error) {
 	return c, nil
 }
 
+// ChangeServer changes the address all Queries will be sent to.  Useful for testing and development.
+func (c *Connection) ChangeServer(s string) {
+	c.Server = s
+}
+
+// Indexes returns the list of indexes present in the database
+func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err error) {
+	// Prepare the API parameters
+	data := url.Values{}
+	data.Set("apikey", c.APIKey)
+	data.Set("dbowner", dbowner)
+	data.Set("dbname", dbname)
+
+	// Fetch the list of indexes
+	var resp *http.Response
+	resp, err = http.PostForm(c.Server+"/v1/indexes", data)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	// Basic error handling, depending on the status code received from the server
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// The returned status code indicates something went wrong
+		err = fmt.Errorf(resp.Status)
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		// TODO: Figure out what should be returned for other 2** status messages
+		return
+	}
+
+	// Convert the response into the list of indexes
+	err = json.NewDecoder(resp.Body).Decode(&idx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
 // Query runs a SQL query (SELECT only) on the chosen database, returning the results
 func (c Connection) Query(dbowner, dbname, sql string) (out Results, err error) {
 	// Prepare the API parameters
@@ -74,11 +115,6 @@ func (c Connection) Query(dbowner, dbname, sql string) (out Results, err error) 
 		out.Rows = append(out.Rows, oneRow)
 	}
 	return
-}
-
-// ChangeServer changes the address all Queries will be sent to.  Useful for testing and development.
-func (c *Connection) ChangeServer(s string) {
-	c.Server = s
 }
 
 // Tables returns the list of tables present in the database
@@ -154,6 +190,8 @@ func (c Connection) Views(dbowner, dbname string) (vws []string, err error) {
 }
 
 // TODO: Create function(s) for listing indexes in the remote database
+
+// TODO: Create function to list columns in a table (or view?)
 
 // TODO: Create function for returning a list of available databases
 
