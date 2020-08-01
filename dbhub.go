@@ -1,11 +1,21 @@
 package dbhub
 
+// An library for working with databases on DBHub.io
+
+// TODO:
+//   * Add tests for each function
+//   * Create function(s) for listing indexes in the remote database
+//   * Create function to list columns in a table or view
+//   * Create function for returning a list of available databases
+//   * Create function for downloading complete database
+//   * Create function for uploading complete database
+//   * Create function for retrieving database details (size, branch, commit list, whatever else is useful)
+//   * Make a reasonable example application written in Go
+
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 
 	com "github.com/sqlitebrowser/dbhub.io/common"
@@ -15,7 +25,8 @@ const (
 	LibraryVersion = "0.0.1"
 )
 
-// New creates a new DBHub.io connection object.  It doesn't connect to DBHub.io to do this.
+// New creates a new DBHub.io connection object.  It doesn't connect to DBHub.io to do this.  Connection only occurs
+// when subsequent functions (eg Query()) are called.
 func New(key string) (Connection, error) {
 	c := Connection{
 		APIKey: key,
@@ -24,7 +35,7 @@ func New(key string) (Connection, error) {
 	return c, nil
 }
 
-// ChangeServer changes the address all Queries will be sent to.  Useful for testing and development.
+// ChangeServer changes the address all queries will be sent to.  Useful for testing and development.
 func (c *Connection) ChangeServer(s string) {
 	c.Server = s
 }
@@ -39,20 +50,10 @@ func (c Connection) Columns(dbowner, dbname, table string) (columns []com.APIJSO
 	data.Set("table", table)
 
 	// Fetch the list of columns
-	var resp *http.Response
 	queryUrl := c.Server + "/v1/columns"
-	resp, err = sendRequest(queryUrl, data)
+	err = sendRequest(queryUrl, data, &columns)
 	if err != nil {
-		return
-	}
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	// Convert the response into the list of columns
-	err = json.NewDecoder(resp.Body).Decode(&columns)
-	if err != nil {
-		log.Fatal(err)
+		log.Printf(err.Error())
 	}
 	return
 }
@@ -66,20 +67,10 @@ func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err 
 	data.Set("dbname", dbname)
 
 	// Fetch the list of indexes
-	var resp *http.Response
 	queryUrl := c.Server + "/v1/indexes"
-	resp, err = sendRequest(queryUrl, data)
+	err = sendRequest(queryUrl, data, &idx)
 	if err != nil {
-		return
-	}
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	// Convert the response into the list of indexes
-	err = json.NewDecoder(resp.Body).Decode(&idx)
-	if err != nil {
-		log.Fatal(err)
+		log.Printf(err.Error())
 	}
 	return
 }
@@ -96,24 +87,15 @@ func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (
 	data.Set("sql", base64.StdEncoding.EncodeToString([]byte(sql)))
 
 	// Run the query on the remote database
-	var resp *http.Response
+	var returnedData []com.DataRow
 	queryUrl := c.Server + "/v1/query"
-	resp, err = sendRequest(queryUrl, data)
+	err = sendRequest(queryUrl, data, &returnedData)
 	if err != nil {
+		log.Printf(err.Error())
 		return
 	}
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
 
-	// The query ran successfully, so prepare and return the results
-	var returnedData []com.DataRow
-	err = json.NewDecoder(resp.Body).Decode(&returnedData)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Construct the result list
+	// Loop through the results, converting it to a more concise output format
 	for _, j := range returnedData {
 
 		// Construct a single row
@@ -140,6 +122,7 @@ func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (
 				oneRow.Fields = append(oneRow.Fields, "")
 			}
 		}
+
 		// Add the row to the output list
 		out.Rows = append(out.Rows, oneRow)
 	}
@@ -155,26 +138,16 @@ func (c Connection) Tables(dbowner, dbname string) (tbl []string, err error) {
 	data.Set("dbname", dbname)
 
 	// Fetch the list of tables
-	var resp *http.Response
 	queryUrl := c.Server + "/v1/tables"
-	resp, err = sendRequest(queryUrl, data)
+	err = sendRequest(queryUrl, data, &tbl)
 	if err != nil {
-		return
-	}
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	// Convert the response into the list of tables
-	err = json.NewDecoder(resp.Body).Decode(&tbl)
-	if err != nil {
-		log.Fatal(err)
+		log.Printf(err.Error())
 	}
 	return
 }
 
 // Views returns the list of views in the database
-func (c Connection) Views(dbowner, dbname string) (vws []string, err error) {
+func (c Connection) Views(dbowner, dbname string) (views []string, err error) {
 	// Prepare the API parameters
 	data := url.Values{}
 	data.Set("apikey", c.APIKey)
@@ -182,34 +155,10 @@ func (c Connection) Views(dbowner, dbname string) (vws []string, err error) {
 	data.Set("dbname", dbname)
 
 	// Fetch the list of views
-	var resp *http.Response
 	queryUrl := c.Server + "/v1/views"
-	resp, err = sendRequest(queryUrl, data)
+	err = sendRequest(queryUrl, data, &views)
 	if err != nil {
-		return
-	}
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	// Convert the response into the list of views
-	err = json.NewDecoder(resp.Body).Decode(&vws)
-	if err != nil {
-		log.Fatal(err)
+		log.Printf(err.Error())
 	}
 	return
 }
-
-// TODO: Create function(s) for listing indexes in the remote database
-
-// TODO: Create function to list columns in a table (or view?)
-
-// TODO: Create function for returning a list of available databases
-
-// TODO: Create function for downloading complete database
-
-// TODO: Create function for uploading complete database
-
-// TODO: Create function for retrieving database details (size, branch, commit list, whatever else is useful)
-
-// TODO: Make a reasonable example application written in Go
