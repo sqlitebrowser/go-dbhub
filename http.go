@@ -19,7 +19,7 @@ func sendRequest(queryUrl string, data url.Values, returnStructure interface{}) 
 		return
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", fmt.Sprintf("go-dbhub v%s", LibraryVersion))
+	req.Header.Set("User-Agent", fmt.Sprintf("go-dbhub v%s", version))
 	resp, err = client.Do(req)
 	if err != nil {
 		return

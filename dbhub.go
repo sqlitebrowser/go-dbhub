@@ -1,16 +1,6 @@
 package dbhub
 
-// An library for working with databases on DBHub.io
-
-// TODO:
-//   * Add tests for each function
-//   * Create function(s) for listing indexes in the remote database
-//   * Create function to list columns in a table or view
-//   * Create function for returning a list of available databases
-//   * Create function for downloading complete database
-//   * Create function for uploading complete database
-//   * Create function for retrieving database details (size, branch, commit list, whatever else is useful)
-//   * Make a reasonable example application written in Go
+// A Go library for working with databases on DBHub.io
 
 import (
 	"encoding/base64"
@@ -21,7 +11,7 @@ import (
 )
 
 const (
-	LibraryVersion = "0.0.1"
+	version = "0.0.1"
 )
 
 // New creates a new DBHub.io connection object.  It doesn't connect to DBHub.io to do this.  Connection only occurs
