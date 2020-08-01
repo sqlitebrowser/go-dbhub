@@ -11,6 +11,10 @@ import (
 	com "github.com/sqlitebrowser/dbhub.io/common"
 )
 
+const (
+	LibraryVersion = "0.0.1"
+)
+
 // New creates a new DBHub.io connection object.  It doesn't connect to DBHub.io to do this.
 func New(key string) (Connection, error) {
 	c := Connection{
@@ -36,22 +40,13 @@ func (c Connection) Columns(dbowner, dbname, table string) (columns []com.APIJSO
 
 	// Fetch the list of columns
 	var resp *http.Response
-	resp, err = http.PostForm(c.Server+"/v1/columns", data)
+	queryUrl := c.Server + "/v1/columns"
+	resp, err = sendRequest(queryUrl, data)
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-
-	// Basic error handling, depending on the status code received from the server
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// The returned status code indicates something went wrong
-		err = fmt.Errorf(resp.Status)
-		return
-	}
-
-	if resp.StatusCode != 200 {
-		// TODO: Figure out what should be returned for other 2** status messages
-		return
+	if resp.Body != nil {
+		defer resp.Body.Close()
 	}
 
 	// Convert the response into the list of columns
@@ -62,7 +57,7 @@ func (c Connection) Columns(dbowner, dbname, table string) (columns []com.APIJSO
 	return
 }
 
-// Indexes returns the list of indexes present in the database
+// Indexes returns the list of indexes present in the database, along with the table they belong to
 func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err error) {
 	// Prepare the API parameters
 	data := url.Values{}
@@ -72,22 +67,13 @@ func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err 
 
 	// Fetch the list of indexes
 	var resp *http.Response
-	resp, err = http.PostForm(c.Server+"/v1/indexes", data)
+	queryUrl := c.Server + "/v1/indexes"
+	resp, err = sendRequest(queryUrl, data)
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-
-	// Basic error handling, depending on the status code received from the server
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// The returned status code indicates something went wrong
-		err = fmt.Errorf(resp.Status)
-		return
-	}
-
-	if resp.StatusCode != 200 {
-		// TODO: Figure out what should be returned for other 2** status messages
-		return
+	if resp.Body != nil {
+		defer resp.Body.Close()
 	}
 
 	// Convert the response into the list of indexes
@@ -111,21 +97,13 @@ func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (
 
 	// Run the query on the remote database
 	var resp *http.Response
-	resp, err = http.PostForm(c.Server+"/v1/query", data)
+	queryUrl := c.Server + "/v1/query"
+	resp, err = sendRequest(queryUrl, data)
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-
-	// Basic error handling, depending on the status code received from the server
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// The returned status code indicates something went wrong
-		return Results{}, fmt.Errorf(resp.Status)
-	}
-
-	if resp.StatusCode != 200 {
-		// TODO: Figure out what should be returned for other 2** status messages
-		return
+	if resp.Body != nil {
+		defer resp.Body.Close()
 	}
 
 	// The query ran successfully, so prepare and return the results
@@ -148,7 +126,12 @@ func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (
 			case com.Binary:
 				// BLOB data is optionally Base64 encoded, or just skipped (using an empty string as placeholder)
 				if blobBase64 {
-					oneRow.Fields = append(oneRow.Fields, base64.StdEncoding.EncodeToString([]byte(l.Value.(string))))
+					// Safety check. Make sure we've received a string
+					if _, ok := l.Value.(string); ok {
+						oneRow.Fields = append(oneRow.Fields, base64.StdEncoding.EncodeToString([]byte(l.Value.(string))))
+					} else {
+						oneRow.Fields = append(oneRow.Fields, fmt.Sprintf("unexpected data type '%T' for returned BLOB", l.Value))
+					}
 				} else {
 					oneRow.Fields = append(oneRow.Fields, "")
 				}
@@ -163,7 +146,7 @@ func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (
 	return
 }
 
-// Tables returns the list of tables present in the database
+// Tables returns the list of tables in the database
 func (c Connection) Tables(dbowner, dbname string) (tbl []string, err error) {
 	// Prepare the API parameters
 	data := url.Values{}
@@ -173,22 +156,13 @@ func (c Connection) Tables(dbowner, dbname string) (tbl []string, err error) {
 
 	// Fetch the list of tables
 	var resp *http.Response
-	resp, err = http.PostForm(c.Server+"/v1/tables", data)
+	queryUrl := c.Server + "/v1/tables"
+	resp, err = sendRequest(queryUrl, data)
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-
-	// Basic error handling, depending on the status code received from the server
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// The returned status code indicates something went wrong
-		err = fmt.Errorf(resp.Status)
-		return
-	}
-
-	if resp.StatusCode != 200 {
-		// TODO: Figure out what should be returned for other 2** status messages
-		return
+	if resp.Body != nil {
+		defer resp.Body.Close()
 	}
 
 	// Convert the response into the list of tables
@@ -199,7 +173,7 @@ func (c Connection) Tables(dbowner, dbname string) (tbl []string, err error) {
 	return
 }
 
-// Views returns the list of views present in the database
+// Views returns the list of views in the database
 func (c Connection) Views(dbowner, dbname string) (vws []string, err error) {
 	// Prepare the API parameters
 	data := url.Values{}
@@ -209,22 +183,13 @@ func (c Connection) Views(dbowner, dbname string) (vws []string, err error) {
 
 	// Fetch the list of views
 	var resp *http.Response
-	resp, err = http.PostForm(c.Server+"/v1/views", data)
+	queryUrl := c.Server + "/v1/views"
+	resp, err = sendRequest(queryUrl, data)
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-
-	// Basic error handling, depending on the status code received from the server
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// The returned status code indicates something went wrong
-		err = fmt.Errorf(resp.Status)
-		return
-	}
-
-	if resp.StatusCode != 200 {
-		// TODO: Figure out what should be returned for other 2** status messages
-		return
+	if resp.Body != nil {
+		defer resp.Body.Close()
 	}
 
 	// Convert the response into the list of views
