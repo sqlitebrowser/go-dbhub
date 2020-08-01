@@ -15,7 +15,6 @@ package dbhub
 import (
 	"encoding/base64"
 	"fmt"
-	"log"
 	"net/url"
 
 	com "github.com/sqlitebrowser/dbhub.io/common"
@@ -35,7 +34,12 @@ func New(key string) (Connection, error) {
 	return c, nil
 }
 
-// ChangeServer changes the address all queries will be sent to.  Useful for testing and development.
+// ChangeAPIKey updates the API key used for authenticating with DBHub.io.
+func (c *Connection) ChangeAPIKey(k string) {
+	c.APIKey = k
+}
+
+// ChangeServer changes the address for communicating with DBHub.io.  Useful for testing and development.
 func (c *Connection) ChangeServer(s string) {
 	c.Server = s
 }
@@ -52,9 +56,6 @@ func (c Connection) Columns(dbowner, dbname, table string) (columns []com.APIJSO
 	// Fetch the list of columns
 	queryUrl := c.Server + "/v1/columns"
 	err = sendRequest(queryUrl, data, &columns)
-	if err != nil {
-		log.Printf(err.Error())
-	}
 	return
 }
 
@@ -69,9 +70,6 @@ func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err 
 	// Fetch the list of indexes
 	queryUrl := c.Server + "/v1/indexes"
 	err = sendRequest(queryUrl, data, &idx)
-	if err != nil {
-		log.Printf(err.Error())
-	}
 	return
 }
 
@@ -91,7 +89,6 @@ func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (
 	queryUrl := c.Server + "/v1/query"
 	err = sendRequest(queryUrl, data, &returnedData)
 	if err != nil {
-		log.Printf(err.Error())
 		return
 	}
 
@@ -140,9 +137,6 @@ func (c Connection) Tables(dbowner, dbname string) (tbl []string, err error) {
 	// Fetch the list of tables
 	queryUrl := c.Server + "/v1/tables"
 	err = sendRequest(queryUrl, data, &tbl)
-	if err != nil {
-		log.Printf(err.Error())
-	}
 	return
 }
 
@@ -157,8 +151,5 @@ func (c Connection) Views(dbowner, dbname string) (views []string, err error) {
 	// Fetch the list of views
 	queryUrl := c.Server + "/v1/views"
 	err = sendRequest(queryUrl, data, &views)
-	if err != nil {
-		log.Printf(err.Error())
-	}
 	return
 }
