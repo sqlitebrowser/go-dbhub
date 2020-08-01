@@ -5,13 +5,13 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 
 *This is an early stage work in progress*
 
-What works now:
+### What works now
 
 * Run read-only queries (eg SELECT statements) on databases, returning the results as JSON
 * List the names of tables, views, and indexes present in a database
 * List the columns present in a table or view, along with their details
 
-Still to do:
+### Still to do
 
 * Tests for each function
 * Retrieve index details for a database
@@ -20,7 +20,7 @@ Still to do:
 * Upload a complete database
 * Retrieve database commit history details (size, branch, commit list, whatever else is useful)
 
-Example code:
+### Example code
 
 ```
 // Create a new DBHub.io API object
@@ -54,7 +54,7 @@ fmt.Printf("Query results:\n\t%v\n", r)
 fmt.Println()
 ```
 
-Output:
+### Output
 
 ```
 Tables:
@@ -64,5 +64,13 @@ Tables:
 Query results:
         {[{[Foo 5]} {[Bar 10]} {[Baz 15]} {[Blumph 12.5000]} {[Blargo 8]} {[Batty 3]}]}
 ```
+
+### Further examples
+
+* [SQL Query](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/sql_query/main.go) - Run a SQL query, return the results as JSON
+* [List tables](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_tables/main.go) - List the tables present in a database
+* [List views](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_views/main.go) - List the views present in a database
+* [List indexes](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_indexes/main.go) - List the indexes present in a database
+* [Retrieve column details](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/column_details/main.go) - Retrieve the details of columns in a table
   
-Please try it out, submits PRs, and report any weirdness or bugs you encounter. :smile:
+Please try it out, submits PRs to extend or fix things, and report any weirdness or bugs you encounter. :smile:
