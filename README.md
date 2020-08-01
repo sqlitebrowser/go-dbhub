@@ -20,6 +20,13 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 * Upload a complete database
 * Retrieve database commit history details (size, branch, commit list, whatever else is useful)
 
+### Requirements
+
+* [Go](https://golang.org/dl/) version 1.14.x
+  * Older Go releases should be ok, but only Go 1.14.x has been tested (so far).
+* A DBHub.io API key
+  * These can be generated in your [Settings](https://dbhub.io/pref) page, when logged in.
+
 ### Example code
 
 ```
@@ -50,7 +57,7 @@ r, err := db.Query("justinclift", "Join Testing.sqlite", false,
 if err != nil {
     log.Fatal(err)
 }
-fmt.Printf("Query results:\n\t%v\n", r)
+fmt.Printf("Query results (JSON):\n\t%v\n", r)
 fmt.Println()
 ```
 
@@ -61,7 +68,7 @@ Tables:
   * table1
   * table2
 
-Query results:
+Query results (JSON):
         {[{[Foo 5]} {[Bar 10]} {[Baz 15]} {[Blumph 12.5000]} {[Blargo 8]} {[Batty 3]}]}
 ```
 
