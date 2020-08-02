@@ -49,6 +49,32 @@ func (c Connection) Columns(dbowner, dbname, table string) (columns []com.APIJSO
 	return
 }
 
+// Diff returns the differences between two commits of two databases, or if the details on the second database are left empty,
+// between two commits of the same database. You can also specify the merge strategy used for the generated SQL statements.
+func (c Connection) Diff(dbOwnerA string, dbNameA string, commitA string, dbOwnerB string, dbNameB string, commitB string, merge MergeStrategy) (diffs com.Diffs, err error) {
+	// Prepare the API parameters
+	data := url.Values{}
+	data.Set("apikey", c.APIKey)
+	data.Set("dbowner_a", dbOwnerA)
+	data.Set("dbname_a", dbNameA)
+	data.Set("commit_a", commitA)
+	data.Set("dbowner_b", dbOwnerB)
+	data.Set("dbname_b", dbNameB)
+	data.Set("commit_b", commitB)
+	if merge == PreservePkMerge {
+		data.Set("merge", "preserve_pk")
+	} else if merge == NewPkMerge {
+		data.Set("merge", "new_pk")
+	} else {
+		data.Set("merge", "none")
+	}
+
+	// Fetch the diffs
+	queryUrl := c.Server + "/v1/diff"
+	err = sendRequest(queryUrl, data, &diffs)
+	return
+}
+
 // Indexes returns the list of indexes present in the database, along with the table they belong to
 func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err error) {
 	// Prepare the API parameters

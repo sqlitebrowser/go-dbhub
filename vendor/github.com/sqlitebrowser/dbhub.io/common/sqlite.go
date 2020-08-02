@@ -730,10 +730,10 @@ func SQLiteRunQuery(sdb *sqlite.Conn, querySource QuerySource, dbQuery string, i
 			isNull := false
 			switch fieldType {
 			case sqlite.Integer:
-				var val int
-				val, isNull, err = s.ScanInt(i)
+				var val int64
+				val, isNull, err = s.ScanInt64(i)
 				if err != nil {
-					log.Printf("Something went wrong with ScanInt(): %v\n", err)
+					log.Printf("Something went wrong with ScanInt64(): %v\n", err)
 					break
 				}
 				if !isNull {
@@ -748,7 +748,7 @@ func SQLiteRunQuery(sdb *sqlite.Conn, querySource QuerySource, dbQuery string, i
 					break
 				}
 				if !isNull {
-					stringVal := strconv.FormatFloat(val, 'f', 4, 64)
+					stringVal := strconv.FormatFloat(val, 'f', -1, 64)
 					row = append(row, DataValue{Name: dataRows.ColNames[i], Type: Float, Value: stringVal})
 				}
 			case sqlite.Text:
@@ -768,8 +768,13 @@ func SQLiteRunQuery(sdb *sqlite.Conn, querySource QuerySource, dbQuery string, i
 							row = append(row, DataValue{Name: dataRows.ColNames[i], Type: Binary,
 								Value: base64.StdEncoding.EncodeToString(b)})
 						case Internal:
+							stringVal := "x'"
+							for _, c := range b {
+								stringVal += fmt.Sprintf("%02x", c)
+							}
+							stringVal += "'"
 							row = append(row, DataValue{Name: dataRows.ColNames[i], Type: Binary,
-								Value: b})
+								Value: stringVal})
 						default:
 							row = append(row, DataValue{Name: dataRows.ColNames[i], Type: Binary,
 								Value: "<i>BINARY DATA</i>"})
@@ -946,41 +951,70 @@ func Views(sdb *sqlite.Conn) (vw []string, err error) {
 	return
 }
 
-// Escape an identifier for safe use in SQL queries
+// EscapeId puts an SQL identifier in quote characters and escapes any quote characters it contains, making it safe for use in SQL queries
 func EscapeId(id string) string {
 	return sqlite.Mprintf("\"%w\"", id)
 }
 
-// Format and escape a string value for use in SQL queries
+// EscapeIds does the same as EscapeId but for a slice of identifiers
+func EscapeIds(ids []string) (escaped []string) {
+	for _, i := range ids {
+		escaped = append(escaped, EscapeId(i))
+	}
+	return escaped
+}
+
+// EscapeValue formats, quotes and escapes a DataValue for use in SQL queries
 func EscapeValue(val DataValue) string {
 	if val.Type == Null {
 		return "NULL"
 	} else if val.Type == Integer || val.Type == Float {
 		return val.Value.(string)
-	} else {
+	} else if val.Type == Text {
 		return sqlite.Mprintf("%Q", val.Value.(string))
+	} else { // BLOB and similar
+		return val.Value.(string)
 	}
 }
 
-// Figure out the primary key columns of a table.
+// EscapeValues does the same as EscapeValue but for a slice of DataValues
+func EscapeValues(vals []DataValue) (escaped []string) {
+	for _, v := range vals {
+		escaped = append(escaped, EscapeValue(v))
+	}
+	return escaped
+}
+
+// Figure out the primary key columns and the other columns of a table.
 // The schema and table parameters specify the schema and table names to use.
-func GetPrimaryKeyColumns(sdb *sqlite.Conn, schema string, table string) (pks []string, err error) {
+// This function returns two arrays: One containing the list of primary key columns in the same order as they
+// are used in the primary key. The other array contains a list of all the other, non-primary key columns.
+// Generated columns are ignored completely. If the primary key exists only implicitly, i.e. it's the rowid
+// column, the implicitPk flag is set to true.
+func GetPrimaryKeyAndOtherColumns(sdb *sqlite.Conn, schema string, table string) (pks []string, implicitPk bool, other []string, err error) {
 	// Prepare query
 	var stmt *sqlite.Stmt
 	stmt, err = sdb.Prepare("PRAGMA " + EscapeId(schema) + ".table_info(" + EscapeId(table) + ")")
 	if err != nil {
-		log.Printf("Error when preparing statement in GetPrimaryKey(): %s\n", err)
-		return nil, err
+		log.Printf("Error when preparing statement in GetPrimaryKeyAndOtherColumns(): %s\n", err)
+		return nil, false, nil, err
 	}
 	defer stmt.Finalize()
 
-	// Execute query and retrieve all primary key columns
+	// Execute query and retrieve all columns
 	primaryKeyColumns := make(map[int]string)
 	var hasColumnRowid, hasColumn_Rowid_, hasColumnOid bool
 	err = stmt.Select(func(s *sqlite.Stmt) error {
+		// Get name and primary key order
 		columnName, _ := s.ScanText(1)
 		pkOrder, _, _ := s.ScanInt(5)
-		if pkOrder > 0 {
+
+		// Is this column part of the primary key?
+		if pkOrder == 0 {
+			// It's not
+			other = append(other, columnName)
+		} else {
+			// It is
 			primaryKeyColumns[pkOrder] = columnName
 		}
 
@@ -995,14 +1029,16 @@ func GetPrimaryKeyColumns(sdb *sqlite.Conn, schema string, table string) (pks []
 		return nil
 	})
 	if err != nil {
-		log.Printf("Error when retrieving rows in GetPrimaryKey(): %s\n", err)
-		return nil, err
+		log.Printf("Error when retrieving rows in GetPrimaryKeyAndOtherColumns(): %s\n", err)
+		return nil, false, nil, err
 	}
 
 	// Did we get any primary key columns? If not, this table has only an implicit primary key which
 	// is accessible by the name rowid, _rowid_, or oid
 	if len(primaryKeyColumns) > 0 {
 		// Explicit primary key
+
+		implicitPk = false
 
 		// Sort the columns by their order in the PK
 		keys := make([]int, 0, len(primaryKeyColumns))
@@ -1017,6 +1053,9 @@ func GetPrimaryKeyColumns(sdb *sqlite.Conn, schema string, table string) (pks []
 		}
 	} else {
 		// Implicit primary key
+
+		implicitPk = true
+
 		if !hasColumnRowid {
 			pks = append(pks, "rowid")
 		} else if !hasColumn_Rowid_ {
@@ -1025,8 +1064,9 @@ func GetPrimaryKeyColumns(sdb *sqlite.Conn, schema string, table string) (pks []
 			pks = append(pks, "oid")
 		} else {
 			log.Printf("Unreachable rowid column in GetPrimaryKey()\n")
-			return nil, errors.New("Unreachable rowid column")
+			return nil, false, nil, errors.New("Unreachable rowid column")
 		}
 	}
-	return pks, nil
+
+	return pks, implicitPk, other, nil
 }
