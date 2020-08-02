@@ -13,12 +13,14 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 
 ### Still to do
 
+* Add commit identifier parameters (commit id, branch, tag) to each call
 * Tests for each function
 * Retrieve index details for a database
 * Return the list of available databases
 * Download a complete database
 * Upload a complete database
 * Retrieve database commit history details (size, branch, commit list, whatever else is useful)
+* Diffs between database revisions
 
 ### Requirements
 
