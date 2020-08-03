@@ -86,7 +86,7 @@ Query results (JSON):
         {[{[Foo 5]} {[Bar 10]} {[Baz 15]} {[Blumph 12.5000]} {[Blargo 8]} {[Batty 3]}]}
 ```
 
-#### Generate and display diff for two commits of a remote database
+#### Generate and display the difference between two commits of a remote database
 ```
 // The databases we want to see differences for
 db1Owner := "justinclift"
