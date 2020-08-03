@@ -20,6 +20,7 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 * Download a complete database
 * Upload a complete database
 * Retrieve database commit history details (size, branch, commit list, whatever else is useful)
+* Investigate what would be needed for this to work through the Go SQL API
 
 ### Requirements
 
