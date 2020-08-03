@@ -68,7 +68,7 @@ Tables:
 showBlobs := false
 
 // Run the query
-r, err := db.Query("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"}, showBlobs,
+result, err := db.Query("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"}, showBlobs,
     `SELECT table1.Name, table2.value
         FROM table1 JOIN table2
         USING (id)
@@ -76,7 +76,7 @@ r, err := db.Query("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch
 if err != nil {
     log.Fatal(err)
 }
-fmt.Printf("Query results (JSON):\n\t%v\n", r)
+fmt.Printf("Query results (JSON):\n\t%v\n", result)
 fmt.Println()
 ```
 
