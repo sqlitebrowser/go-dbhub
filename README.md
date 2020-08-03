@@ -10,6 +10,7 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 * Run read-only queries (eg SELECT statements) on databases, returning the results as JSON
 * List the names of tables, views, and indexes present in a database
 * List the columns present in a table or view, along with their details
+* Generate diffs between two databases, or database revisions
 
 ### Still to do
 

@@ -14,16 +14,6 @@ type Identifier struct {
 	Tag      string `json:"tag"`
 }
 
-// ResultRow is used for returning the results of a SQL query as a slice of strings
-type ResultRow struct {
-	Fields []string
-}
-
-// Results is used for returning the results of a SQL query as a slice of strings
-type Results struct {
-	Rows []ResultRow
-}
-
 // MergeStrategy specifies the type of SQL statements included in the diff results.
 // The SQL statements can be used for merging databases and depending on whether and
 // how you want to merge you should choose your merge strategy.
@@ -41,3 +31,13 @@ const (
 	// executed. This avoids a couple of possible conflicts and allows merging more distant databases.
 	NewPkMerge
 )
+
+// ResultRow is used for returning the results of a SQL query as a slice of strings
+type ResultRow struct {
+	Fields []string
+}
+
+// Results is used for returning the results of a SQL query as a slice of strings
+type Results struct {
+	Rows []ResultRow
+}
