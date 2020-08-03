@@ -15,7 +15,7 @@ func main() {
 	}
 
 	// Retrieve the list of tables in the remote database
-	tables, err := db.Tables("justinclift", "Join Testing.sqlite")
+	tables, err := db.Tables("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"})
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -17,8 +17,8 @@ func main() {
 	// Retrieve the differences between two commmits of the same database
 	user := "justinclift"
 	database := "DB4S download stats.sqlite"
-	commit1 := "34cbeebfc347a09406707f4220cd40f60778692523d2e7d227ccd92f4125c9ea"
-	commit2 := "bc6a07955811d86db79e9b4f7fdc3cb2360d40da793066510d792588a8bf8de2"
+	commit1 := dbhub.Identifier{CommitID: "34cbeebfc347a09406707f4220cd40f60778692523d2e7d227ccd92f4125c9ea"}
+	commit2 := dbhub.Identifier{CommitID: "bc6a07955811d86db79e9b4f7fdc3cb2360d40da793066510d792588a8bf8de2"}
 	mergeMode := dbhub.PreservePkMerge
 	diffs, err := db.Diff(user, database, commit1, "", "", commit2, mergeMode)
 	if err != nil {

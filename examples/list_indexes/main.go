@@ -15,7 +15,7 @@ func main() {
 	}
 
 	// Retrieve the list of indexes in the remote database
-	indexes, err := db.Indexes("justinclift", "Join Testing.sqlite")
+	indexes, err := db.Indexes("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"})
 	if err != nil {
 		log.Fatal(err)
 	}

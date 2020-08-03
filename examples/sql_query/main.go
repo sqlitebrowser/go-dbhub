@@ -16,8 +16,8 @@ func main() {
 
 	// Run a query on the remote database
 	showBlobs := false
-	r, err := db.Query("justinclift", "Join Testing.sqlite", showBlobs,
-		`SELECT table1.Name, table2.value
+	r, err := db.Query("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"},
+		showBlobs, `SELECT table1.Name, table2.value
 			FROM table1 JOIN table2
 			USING (id)
 			ORDER BY table1.id`)

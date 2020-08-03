@@ -31,15 +31,19 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 
 ### Example code
 
+#### Create a new DBHub.io API object
+
 ```
-// Create a new DBHub.io API object
 db, err := dbhub.New("YOUR_API_KEY_HERE")
 if err != nil {
     log.Fatal(err)
 }
+```
 
-// Retrieve the list of tables in the remote database
-tables, err := db.Tables("justinclift", "Join Testing.sqlite")
+#### Retrieve the list of tables in a remote database
+```
+// Run the `Tables()` function on the new API object
+tables, err := db.Tables("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"})
 if err != nil {
     log.Fatal(err)
 }
@@ -49,9 +53,22 @@ fmt.Println("Tables:")
 for _, j := range tables {
     fmt.Printf("  * %s\n", j)
 }
+```
 
-// Run a SQL query on the remote database
-r, err := db.Query("justinclift", "Join Testing.sqlite", false,
+##### Output
+```
+Tables:
+  * table1
+  * table2
+```
+
+#### Run a SQL query on a remote database
+```
+// Do we want to display BLOBs as base64?
+showBlobs := false
+
+// Run the query
+r, err := db.Query("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"}, showBlobs,
     `SELECT table1.Name, table2.value
         FROM table1 JOIN table2
         USING (id)
@@ -63,15 +80,48 @@ fmt.Printf("Query results (JSON):\n\t%v\n", r)
 fmt.Println()
 ```
 
-### Output
-
+##### Output
 ```
-Tables:
-  * table1
-  * table2
-
 Query results (JSON):
         {[{[Foo 5]} {[Bar 10]} {[Baz 15]} {[Blumph 12.5000]} {[Blargo 8]} {[Batty 3]}]}
+```
+
+#### Generate and display diff for two commits of a remote database
+```
+// The databases we want to see differences for
+db1Owner := "justinclift"
+db1Name := "Join Testing.sqlite"
+db1Commit := dbhub.Identifier{CommitID: "c82ba65add364427e9af3f540be8bf98e8cd6bdb825b07c334858e816c983db0"}
+db2Owner := ""
+db2Name := ""
+db2Commit := dbhub.Identifier{CommitID: "adf78104254ece17ff40dab80ae800574fa5d429a4869792a64dcf2027cd9cd9"}
+
+// Create the diff
+diffs, err := db.Diff(db1Owner, db1Name, db1Commit, db2Owner, db2Name, db2Commit, dbhub.PreservePkMerge)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Display the diff
+fmt.Printf("SQL statements for turning the first commit into the second:\n")
+for _, i := range diffs.Diff {
+    if i.Schema != nil {
+        fmt.Printf("%s\n", i.Schema.Sql)
+    }
+    for _, j := range i.Data {
+        fmt.Printf("%s\n", j.Sql)
+    }
+}
+```
+
+##### Output
+```
+SQL statements for turning the first commit into the second:
+CREATE VIEW joinedView AS
+SELECT table1.Name, table2.value
+FROM table1 JOIN table2
+USING (id)
+ORDER BY table1.id;
 ```
 
 ### Further examples

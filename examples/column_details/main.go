@@ -16,7 +16,7 @@ func main() {
 
 	// Retrieve the column info for a table or view in the remote database
 	table := "table1"
-	columns, err := db.Columns("justinclift", "Join Testing.sqlite", table)
+	columns, err := db.Columns("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"}, table)
 	if err != nil {
 		log.Fatal(err)
 	}

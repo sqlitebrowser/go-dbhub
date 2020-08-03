@@ -15,7 +15,7 @@ func main() {
 	}
 
 	// Retrieve the list of views in the remote database
-	views, err := db.Views("justinclift", "Join Testing.sqlite")
+	views, err := db.Views("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"})
 	if err != nil {
 		log.Fatal(err)
 	}
