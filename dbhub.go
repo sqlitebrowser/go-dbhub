@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	version = "0.0.1"
+	version = "0.0.2"
 )
 
 // New creates a new DBHub.io connection object.  It doesn't connect to DBHub.io to do this.  Connection only occurs
@@ -35,12 +35,9 @@ func (c *Connection) ChangeServer(s string) {
 }
 
 // Columns returns the column information for a given table or view
-func (c Connection) Columns(dbowner, dbname, table string) (columns []com.APIJSONColumn, err error) {
+func (c Connection) Columns(dbOwner, dbName string, ident Identifier, table string) (columns []com.APIJSONColumn, err error) {
 	// Prepare the API parameters
-	data := url.Values{}
-	data.Set("apikey", c.APIKey)
-	data.Set("dbowner", dbowner)
-	data.Set("dbname", dbname)
+	data := c.PrepareVals(dbOwner, dbName, ident)
 	data.Set("table", table)
 
 	// Fetch the list of columns
@@ -51,16 +48,38 @@ func (c Connection) Columns(dbowner, dbname, table string) (columns []com.APIJSO
 
 // Diff returns the differences between two commits of two databases, or if the details on the second database are left empty,
 // between two commits of the same database. You can also specify the merge strategy used for the generated SQL statements.
-func (c Connection) Diff(dbOwnerA string, dbNameA string, commitA string, dbOwnerB string, dbNameB string, commitB string, merge MergeStrategy) (diffs com.Diffs, err error) {
+func (c Connection) Diff(dbOwnerA, dbNameA string, identA Identifier, dbOwnerB, dbNameB string, identB Identifier, merge MergeStrategy) (diffs com.Diffs, err error) {
 	// Prepare the API parameters
 	data := url.Values{}
 	data.Set("apikey", c.APIKey)
 	data.Set("dbowner_a", dbOwnerA)
 	data.Set("dbname_a", dbNameA)
-	data.Set("commit_a", commitA)
+	if identA.Branch != "" {
+		data.Set("branch_a", identA.Branch)
+	}
+	if identA.CommitID != "" {
+		data.Set("commit_a", identA.CommitID)
+	}
+	if identA.Release != "" {
+		data.Set("release_a", identA.Release)
+	}
+	if identA.Tag != "" {
+		data.Set("tag_a", identA.Tag)
+	}
 	data.Set("dbowner_b", dbOwnerB)
 	data.Set("dbname_b", dbNameB)
-	data.Set("commit_b", commitB)
+	if identB.Branch != "" {
+		data.Set("branch_b", identB.Branch)
+	}
+	if identB.CommitID != "" {
+		data.Set("commit_b", identB.CommitID)
+	}
+	if identB.Release != "" {
+		data.Set("release_b", identB.Release)
+	}
+	if identB.Tag != "" {
+		data.Set("tag_b", identB.Tag)
+	}
 	if merge == PreservePkMerge {
 		data.Set("merge", "preserve_pk")
 	} else if merge == NewPkMerge {
@@ -76,12 +95,9 @@ func (c Connection) Diff(dbOwnerA string, dbNameA string, commitA string, dbOwne
 }
 
 // Indexes returns the list of indexes present in the database, along with the table they belong to
-func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err error) {
+func (c Connection) Indexes(dbOwner, dbName string, ident Identifier) (idx map[string]string, err error) {
 	// Prepare the API parameters
-	data := url.Values{}
-	data.Set("apikey", c.APIKey)
-	data.Set("dbowner", dbowner)
-	data.Set("dbname", dbname)
+	data := c.PrepareVals(dbOwner, dbName, ident)
 
 	// Fetch the list of indexes
 	queryUrl := c.Server + "/v1/indexes"
@@ -89,15 +105,35 @@ func (c Connection) Indexes(dbowner, dbname string) (idx map[string]string, err 
 	return
 }
 
+// PrepareVals creates a url.Values container holding the API key, database owner, name, and database identifier.  The
+// url.Values container is then used for the requests to DBHub.io.
+func (c Connection) PrepareVals(dbOwner, dbName string, ident Identifier) (data url.Values) {
+	// Prepare the API parameters
+	data = url.Values{}
+	data.Set("apikey", c.APIKey)
+	data.Set("dbowner", dbOwner)
+	data.Set("dbname", dbName)
+	if ident.Branch != "" {
+		data.Set("branch", ident.Branch)
+	}
+	if ident.CommitID != "" {
+		data.Set("commit", ident.CommitID)
+	}
+	if ident.Release != "" {
+		data.Set("release", ident.Release)
+	}
+	if ident.Tag != "" {
+		data.Set("tag", ident.Tag)
+	}
+	return
+}
+
 // Query runs a SQL query (SELECT only) on the chosen database, returning the results.
 // The "blobBase64" boolean specifies whether BLOB data fields should be base64 encoded in the output, or just skipped
 // using an empty string as a placeholder.
-func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (out Results, err error) {
+func (c Connection) Query(dbOwner, dbName string, ident Identifier, blobBase64 bool, sql string) (out Results, err error) {
 	// Prepare the API parameters
-	data := url.Values{}
-	data.Set("apikey", c.APIKey)
-	data.Set("dbowner", dbowner)
-	data.Set("dbname", dbname)
+	data := c.PrepareVals(dbOwner, dbName, ident)
 	data.Set("sql", base64.StdEncoding.EncodeToString([]byte(sql)))
 
 	// Run the query on the remote database
@@ -122,8 +158,8 @@ func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (
 				// BLOB data is optionally Base64 encoded, or just skipped (using an empty string as placeholder)
 				if blobBase64 {
 					// Safety check. Make sure we've received a string
-					if _, ok := l.Value.(string); ok {
-						oneRow.Fields = append(oneRow.Fields, base64.StdEncoding.EncodeToString([]byte(l.Value.(string))))
+					if s, ok := l.Value.(string); ok {
+						oneRow.Fields = append(oneRow.Fields, base64.StdEncoding.EncodeToString([]byte(s)))
 					} else {
 						oneRow.Fields = append(oneRow.Fields, fmt.Sprintf("unexpected data type '%T' for returned BLOB", l.Value))
 					}
@@ -143,12 +179,9 @@ func (c Connection) Query(dbowner, dbname string, blobBase64 bool, sql string) (
 }
 
 // Tables returns the list of tables in the database
-func (c Connection) Tables(dbowner, dbname string) (tbl []string, err error) {
+func (c Connection) Tables(dbOwner, dbName string, ident Identifier) (tbl []string, err error) {
 	// Prepare the API parameters
-	data := url.Values{}
-	data.Set("apikey", c.APIKey)
-	data.Set("dbowner", dbowner)
-	data.Set("dbname", dbname)
+	data := c.PrepareVals(dbOwner, dbName, ident)
 
 	// Fetch the list of tables
 	queryUrl := c.Server + "/v1/tables"
@@ -157,12 +190,9 @@ func (c Connection) Tables(dbowner, dbname string) (tbl []string, err error) {
 }
 
 // Views returns the list of views in the database
-func (c Connection) Views(dbowner, dbname string) (views []string, err error) {
+func (c Connection) Views(dbOwner, dbName string, ident Identifier) (views []string, err error) {
 	// Prepare the API parameters
-	data := url.Values{}
-	data.Set("apikey", c.APIKey)
-	data.Set("dbowner", dbowner)
-	data.Set("dbname", dbname)
+	data := c.PrepareVals(dbOwner, dbName, ident)
 
 	// Fetch the list of views
 	queryUrl := c.Server + "/v1/views"

@@ -6,6 +6,14 @@ type Connection struct {
 	Server string `json:"server"`
 }
 
+// Identifier holds information used to identify a specific commit, tag, release, or the head of a specific branch
+type Identifier struct {
+	Branch   string `json:"branch"`
+	CommitID string `json:"commit_id"`
+	Release  string `json:"release"`
+	Tag      string `json:"tag"`
+}
+
 // ResultRow is used for returning the results of a SQL query as a slice of strings
 type ResultRow struct {
 	Fields []string
