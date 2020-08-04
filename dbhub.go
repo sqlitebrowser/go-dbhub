@@ -14,12 +14,6 @@ const (
 	version = "0.0.2"
 )
 
-// branchResonse is an internal helper structure for decoding the response of the branches API call
-type branchResponse struct {
-	Branches      map[string]com.BranchEntry `json:"branches"`
-	DefaultBranch string                     `json:"default_branch"`
-}
-
 // New creates a new DBHub.io connection object.  It doesn't connect to DBHub.io to do this.  Connection only occurs
 // when subsequent functions (eg Query()) are called.
 func New(key string) (Connection, error) {
@@ -49,13 +43,13 @@ func (c Connection) Branches(dbowner, dbname string) (branches map[string]com.Br
 	data.Set("dbname", dbname)
 
 	// Fetch the list of branches and the default branch
+	var response com.BranchListResponseContainer
 	queryUrl := c.Server + "/v1/branches"
-	var response branchResponse
 	err = sendRequest(queryUrl, data, &response)
 
 	// Extract information for return values
-	branches = response.Branches
-	defaultBranch = response.DefaultBranch
+	branches = response.Entries
+	defaultBranch = response.Default
 	return
 }
 

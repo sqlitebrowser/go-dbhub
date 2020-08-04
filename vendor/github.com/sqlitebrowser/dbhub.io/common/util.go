@@ -17,18 +17,17 @@ import (
 	"time"
 )
 
-// The main function which handles database upload processing for both the webUI and DB4S end points
-func AddDatabase(r *http.Request, loggedInUser string, dbOwner string, dbFolder string, dbName string,
-	createBranch bool, branchName string, commitID string, public bool, licenceName string, commitMsg string,
-	sourceURL string, newDB io.Reader, serverSw string, lastModified time.Time, commitTime time.Time,
-	authorName string, authorEmail string, committerName string, committerEmail string, otherParents []string,
-	dbSha string) (numBytes int64, newCommitID string, err error) {
+// AddDatabase is handles database upload processing
+func AddDatabase(r *http.Request, loggedInUser, dbOwner, dbFolder, dbName string, createBranch bool, branchName,
+	commitID string, public bool, licenceName, commitMsg, sourceURL string, newDB io.Reader, serverSw string,
+	lastModified, commitTime time.Time, authorName, authorEmail, committerName, committerEmail string,
+	otherParents []string, dbSha string) (numBytes int64, newCommitID string, err error) {
 
 	// Create a temporary file to store the database in
 	tempDB, err := ioutil.TempFile(Conf.DiskCache.Directory, "dbhub-upload-")
 	if err != nil {
-		log.Printf("Error creating temporary file. User: '%s', Database: '%s%s%s', Filename: '%s', Error: %v\n",
-			loggedInUser, dbOwner, dbFolder, dbName, tempDB.Name(), err)
+		log.Printf("Error creating temporary file. User: '%s', Database: '%s%s%s', Error: %v\n", loggedInUser,
+			dbOwner, dbFolder, dbName, err)
 		return 0, "", err
 	}
 	tempDBName := tempDB.Name()
@@ -400,8 +399,8 @@ func AddDatabase(r *http.Request, loggedInUser string, dbOwner string, dbFolder 
 	return numBytes, c.ID, nil
 }
 
-// Returns the licence used by the database in a given commit
-func CommitLicenceSHA(dbOwner string, dbFolder string, dbName string, commitID string) (licenceSHA string, err error) {
+// CommitLicenceSHA returns the licence used by the database in a given commit
+func CommitLicenceSHA(dbOwner, dbFolder, dbName, commitID string) (licenceSHA string, err error) {
 	commits, err := GetCommitList(dbOwner, dbFolder, dbName)
 	if err != nil {
 		return "", err
@@ -413,7 +412,7 @@ func CommitLicenceSHA(dbOwner string, dbFolder string, dbName string, commitID s
 	return c.Tree.Entries[0].LicenceSHA, nil
 }
 
-// Generate a stable SHA256 for a commit.
+// CreateCommitID generate a stable SHA256 for a commit
 func CreateCommitID(c CommitEntry) string {
 	var b bytes.Buffer
 	b.WriteString(fmt.Sprintf("tree %s\n", c.Tree.ID))
@@ -435,7 +434,7 @@ func CreateCommitID(c CommitEntry) string {
 	return hex.EncodeToString(s[:])
 }
 
-// Generate the SHA256 for a tree.
+// CreateDBTreeID generate the SHA256 for a tree
 // Tree entry structure is:
 // * [ entry type ] [ licence sha256] [ file sha256 ] [ file name ] [ last modified (timestamp) ] [ file size (bytes) ]
 func CreateDBTreeID(entries []DBTreeEntry) string {
@@ -443,7 +442,7 @@ func CreateDBTreeID(entries []DBTreeEntry) string {
 	for _, j := range entries {
 		b.WriteString(string(j.EntryType))
 		b.WriteByte(0)
-		b.WriteString(string(j.LicenceSHA))
+		b.WriteString(j.LicenceSHA)
 		b.WriteByte(0)
 		b.WriteString(j.Sha256)
 		b.WriteByte(0)
@@ -457,9 +456,9 @@ func CreateDBTreeID(entries []DBTreeEntry) string {
 	return hex.EncodeToString(s[:])
 }
 
-// Safely removes the commit history for a branch, from the head of the branch back to (but not including) the
-// specified commit.  The new branch head will be at the commit ID specified
-func DeleteBranchHistory(dbOwner string, dbFolder string, dbName string, branchName string, commitID string) (isolatedTags []string, isolatedRels []string, err error) {
+// DeleteBranchHistory safely removes the commit history for a branch, from the head of the branch back to (but not
+// including) the specified commit.  The new branch head will be at the commit ID specified
+func DeleteBranchHistory(dbOwner, dbFolder, dbName, branchName, commitID string) (isolatedTags, isolatedRels []string, err error) {
 	// Make sure the requested commit is in the history for the specified branch
 	ok, err := IsCommitInBranchHistory(dbOwner, dbFolder, dbName, branchName, commitID)
 	if err != nil {
@@ -732,7 +731,7 @@ func DeleteBranchHistory(dbOwner string, dbFolder string, dbName string, branchN
 	}
 
 	// Remove any no-longer-needed commits
-	// TODO: We may want to consider clearing any memcache entries for the deleted commits too
+	// TODO: We may want to consider clearing any Memcache entries for the deleted commits too
 	for cid, del := range checkList {
 		if del == true {
 			delete(commitList, cid)
@@ -742,11 +741,11 @@ func DeleteBranchHistory(dbOwner string, dbFolder string, dbName string, branchN
 	return
 }
 
-// Determines the common ancestor commit (if any) between a source and destination branch.  Returns the commit ID of
-// the ancestor and a slice of the commits between them.  If no common ancestor exists, the returned ancestorID will be
-// an empty string. Created for use by our Merge Request functions.
-func GetCommonAncestorCommits(srcOwner string, srcFolder string, srcDBName string, srcBranch string, destOwner string,
-	destFolder string, destName string, destBranch string) (ancestorID string, commitList []CommitEntry, err error, errType int) {
+// GetCommonAncestorCommits determines the common ancestor commit (if any) between a source and destination branch.
+// Returns the commit ID of the ancestor and a slice of the commits between them.  If no common ancestor exists, the
+// returned ancestorID will be an empty string. Created for use by our Merge Request functions.
+func GetCommonAncestorCommits(srcOwner, srcFolder, srcDBName, srcBranch, destOwner, destFolder, destName,
+	destBranch string) (ancestorID string, commitList []CommitEntry, errType int, err error) {
 
 	// To determine the common ancestor, we retrieve the source and destination commit lists, then starting from the
 	// end of the source list, step backwards looking for a matching ID in the destination list.
@@ -816,7 +815,7 @@ func GetCommonAncestorCommits(srcOwner string, srcFolder string, srcDBName strin
 	return
 }
 
-// Returns the name of the function this was called from
+// GetCurrentFunctionName returns the name of the function this was called from
 func GetCurrentFunctionName() (FuncName string) {
 	stk := make([]uintptr, 1)
 	runtime.Callers(2, stk[:])
@@ -824,8 +823,8 @@ func GetCurrentFunctionName() (FuncName string) {
 	return
 }
 
-// Checks if a given commit ID is in the history of the given branch
-func IsCommitInBranchHistory(dbOwner string, dbFolder string, dbName string, branchName string, commitID string) (bool, error) {
+// IsCommitInBranchHistory checks if a given commit ID is in the history of the given branch
+func IsCommitInBranchHistory(dbOwner, dbFolder, dbName, branchName, commitID string) (bool, error) {
 	// Get the commit list for the database
 	commitList, err := GetCommitList(dbOwner, dbFolder, dbName)
 	if err != nil {
@@ -871,7 +870,7 @@ func IsCommitInBranchHistory(dbOwner string, dbFolder string, dbName string, bra
 	return found, nil
 }
 
-// Look for the next child fork in a fork tree
+// nextChild looks for the next child fork in a fork tree
 func nextChild(loggedInUser string, rawListPtr *[]ForkEntry, outputListPtr *[]ForkEntry, forkTrailPtr *[]int, iconDepth int) ([]ForkEntry, []int, bool) {
 	// TODO: This approach feels half arsed.  Maybe redo it as a recursive function instead?
 
@@ -926,7 +925,7 @@ func nextChild(loggedInUser string, rawListPtr *[]ForkEntry, outputListPtr *[]Fo
 	return outputList, forkTrail, false
 }
 
-// Generate a random string
+// RandomString generates a random alphanumeric string of the desired length
 func RandomString(length int) string {
 	rand.Seed(time.Now().UnixNano())
 	const alphaNum = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -934,12 +933,11 @@ func RandomString(length int) string {
 	for i := range randomString {
 		randomString[i] = alphaNum[rand.Intn(len(alphaNum))]
 	}
-
 	return string(randomString)
 }
 
-// Checks if a status update for the user exists for a given discussion or MR, and if so then removes it
-func StatusUpdateCheck(dbOwner string, dbFolder string, dbName string, thisID int, userName string) (numStatusUpdates int, err error) {
+// StatusUpdateCheck checks if a status update for the user exists for a given discussion or MR, and if so then removes it
+func StatusUpdateCheck(dbOwner, dbFolder, dbName string, thisID int, userName string) (numStatusUpdates int, err error) {
 	var lst map[string][]StatusUpdateEntry
 	lst, err = StatusUpdates(userName)
 	if err != nil {

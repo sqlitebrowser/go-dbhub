@@ -10,4 +10,4 @@ replace (
 	github.com/Sirupsen/logrus v1.6.0 => github.com/sirupsen/logrus v1.6.0
 )
 
-require github.com/sqlitebrowser/dbhub.io v0.0.7
+require github.com/sqlitebrowser/dbhub.io v0.0.8

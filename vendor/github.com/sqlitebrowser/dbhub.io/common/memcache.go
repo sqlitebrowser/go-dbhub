@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/gob"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -20,7 +19,7 @@ var (
 	memCache *memcache.Client
 )
 
-// Caches data in Memcached
+// CacheData caches data in Memcached
 func CacheData(cacheKey string, cacheData interface{}, cacheSeconds int) error {
 	// Encode the data
 	var encodedData bytes.Buffer
@@ -40,6 +39,7 @@ func CacheData(cacheKey string, cacheData interface{}, cacheSeconds int) error {
 	return nil
 }
 
+// ConnectCache connects to the Memcached server
 func ConnectCache() error {
 	// Connect to memcached server
 	memCache = memcache.New(Conf.Memcache.Server)
@@ -48,7 +48,7 @@ func ConnectCache() error {
 	cacheTest := memcache.Item{Key: "connecttext", Value: []byte("1"), Expiration: 10}
 	err := memCache.Set(&cacheTest)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Couldn't connect to memcached server: %s", err))
+		return fmt.Errorf("Couldn't connect to memcached server: %s", err)
 	}
 
 	// Log successful connection message for Memcached
@@ -57,7 +57,7 @@ func ConnectCache() error {
 	return nil
 }
 
-// Retrieves cached data from Memcached
+// GetCachedData retrieves cached data from Memcached
 func GetCachedData(cacheKey string, cacheData interface{}) (bool, error) {
 	cacheItem, err := memCache.Get(cacheKey)
 	if err != nil {
@@ -80,7 +80,7 @@ func GetCachedData(cacheKey string, cacheData interface{}) (bool, error) {
 	return false, nil
 }
 
-// Retrieves the view count in memcached for a database
+// GetViewCount retrieves the view count in Memcached for a database
 func GetViewCount(dbOwner string, dbFolder string, dbName string) (count int, err error) {
 	// Generate the cache key
 	cacheString := fmt.Sprintf("viewcount-%s-%s-%s", dbOwner, dbFolder, dbName)
@@ -107,7 +107,7 @@ func GetViewCount(dbOwner string, dbFolder string, dbName string) (count int, er
 	return count, nil
 }
 
-// Increments the view counter in memcached for a database
+// IncrementViewCount increments the view counter in Memcached for a database
 func IncrementViewCount(dbOwner string, dbFolder string, dbName string) error {
 	// Generate the cache key
 	cacheString := fmt.Sprintf("viewcount-%s-%s-%s", dbOwner, dbFolder, dbName)
@@ -143,7 +143,7 @@ func IncrementViewCount(dbOwner string, dbFolder string, dbName string) error {
 	return nil
 }
 
-// Invalidate memcache data for a database entry or entries
+// InvalidateCacheEntry invalidate Memcache data for a database entry or entries
 func InvalidateCacheEntry(loggedInUser string, dbOwner string, dbFolder string, dbName string, commitID string) error {
 	// If commitID is "", that means "for all commits".  Otherwise, just invalidate the data for the requested one
 	var commitList []string
@@ -208,12 +208,12 @@ func InvalidateCacheEntry(loggedInUser string, dbOwner string, dbFolder string, 
 	return nil
 }
 
-// Returns the Memcached handle
+// MemcacheHandle returns the Memcached handle
 func MemcacheHandle() *memcache.Client {
 	return memCache
 }
 
-// Generate a predictable cache key for metadata information
+// MetadataCacheKey generates a predictable cache key for metadata information
 func MetadataCacheKey(prefix string, loggedInUser string, dbOwner string, dbFolder string, dbName string, commitID string) string {
 	var cacheString string
 	if strings.ToLower(loggedInUser) == strings.ToLower(dbOwner) {
@@ -226,7 +226,7 @@ func MetadataCacheKey(prefix string, loggedInUser string, dbOwner string, dbFold
 	return hex.EncodeToString(tempArr[:])
 }
 
-// Increments the view counter in memcached for a database
+// SetUserStatusUpdates increments the view counter in Memcached for a database
 func SetUserStatusUpdates(userName string, numUpdates int) error {
 	// Generate the cache key
 	cacheString := fmt.Sprintf("status-updates-%s", userName)
@@ -246,7 +246,7 @@ func SetUserStatusUpdates(userName string, numUpdates int) error {
 	return nil
 }
 
-// Generate a predictable cache key for SQLite row data
+// TableRowsCacheKey generates a predictable cache key for SQLite row data
 func TableRowsCacheKey(prefix string, loggedInUser string, dbOwner string, dbFolder string, dbName string, commitID string, dbTable string, rows int) string {
 	var cacheString string
 	if strings.ToLower(loggedInUser) == strings.ToLower(dbOwner) {
@@ -261,7 +261,7 @@ func TableRowsCacheKey(prefix string, loggedInUser string, dbOwner string, dbFol
 	return hex.EncodeToString(tempArr[:])
 }
 
-// Returns the number of status updates outstanding for a user
+// UserStatusUpdates returns the number of status updates outstanding for a user
 func UserStatusUpdates(userName string) (numUpdates int, err error) {
 	// Generate the cache key
 	cacheString := fmt.Sprintf("status-updates-%s", userName)
