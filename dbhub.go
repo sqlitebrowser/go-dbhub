@@ -5,6 +5,7 @@ package dbhub
 import (
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net/url"
 
 	com "github.com/sqlitebrowser/dbhub.io/common"
@@ -45,7 +46,7 @@ func (c Connection) Branches(dbowner, dbname string) (branches map[string]com.Br
 	// Fetch the list of branches and the default branch
 	var response com.BranchListResponseContainer
 	queryUrl := c.Server + "/v1/branches"
-	err = sendRequest(queryUrl, data, &response)
+	err = sendRequestJSON(queryUrl, data, &response)
 
 	// Extract information for return values
 	branches = response.Entries
@@ -61,7 +62,7 @@ func (c Connection) Columns(dbOwner, dbName string, ident Identifier, table stri
 
 	// Fetch the list of columns
 	queryUrl := c.Server + "/v1/columns"
-	err = sendRequest(queryUrl, data, &columns)
+	err = sendRequestJSON(queryUrl, data, &columns)
 	return
 }
 
@@ -109,7 +110,21 @@ func (c Connection) Diff(dbOwnerA, dbNameA string, identA Identifier, dbOwnerB, 
 
 	// Fetch the diffs
 	queryUrl := c.Server + "/v1/diff"
-	err = sendRequest(queryUrl, data, &diffs)
+	err = sendRequestJSON(queryUrl, data, &diffs)
+	return
+}
+
+// Download returns the database file
+func (c Connection) Download(dbOwner, dbName string, ident Identifier) (db io.ReadCloser, err error) {
+	// Prepare the API parameters
+	data := c.PrepareVals(dbOwner, dbName, ident)
+
+	// Fetch the database file
+	queryUrl := c.Server + "/v1/download"
+	db, err = sendRequest(queryUrl, data)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -120,7 +135,7 @@ func (c Connection) Indexes(dbOwner, dbName string, ident Identifier) (idx map[s
 
 	// Fetch the list of indexes
 	queryUrl := c.Server + "/v1/indexes"
-	err = sendRequest(queryUrl, data, &idx)
+	err = sendRequestJSON(queryUrl, data, &idx)
 	return
 }
 
@@ -158,7 +173,7 @@ func (c Connection) Query(dbOwner, dbName string, ident Identifier, blobBase64 b
 	// Run the query on the remote database
 	var returnedData []com.DataRow
 	queryUrl := c.Server + "/v1/query"
-	err = sendRequest(queryUrl, data, &returnedData)
+	err = sendRequestJSON(queryUrl, data, &returnedData)
 	if err != nil {
 		return
 	}
@@ -204,7 +219,7 @@ func (c Connection) Tables(dbOwner, dbName string, ident Identifier) (tbl []stri
 
 	// Fetch the list of tables
 	queryUrl := c.Server + "/v1/tables"
-	err = sendRequest(queryUrl, data, &tbl)
+	err = sendRequestJSON(queryUrl, data, &tbl)
 	return
 }
 
@@ -215,6 +230,6 @@ func (c Connection) Views(dbOwner, dbName string, ident Identifier) (views []str
 
 	// Fetch the list of views
 	queryUrl := c.Server + "/v1/views"
-	err = sendRequest(queryUrl, data, &views)
+	err = sendRequestJSON(queryUrl, data, &views)
 	return
 }

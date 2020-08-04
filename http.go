@@ -3,14 +3,32 @@ package dbhub
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
 )
 
-// sendRequest sends the query to the server.  It exists because http.PostForm() doesn't seem to have a way
-// to change header values.
-func sendRequest(queryUrl string, data url.Values, returnStructure interface{}) (err error) {
+// sendRequestJSON sends a request to DBHub.io, formatting the returned result as JSON
+func sendRequestJSON(queryUrl string, data url.Values, returnStructure interface{}) (err error) {
+	// Send the request
+	var body io.ReadCloser
+	body, err = sendRequest(queryUrl, data)
+	if err != nil {
+		return
+	}
+
+	// Unmarshall the JSON response into the structure provided by the caller
+	err = json.NewDecoder(body).Decode(returnStructure)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// sendRequest sends a request to DBHub.io.  It exists because http.PostForm() doesn't seem to have a way of changing
+// header values.
+func sendRequest(queryUrl string, data url.Values) (body io.ReadCloser, err error) {
 	var req *http.Request
 	var resp *http.Response
 	var client http.Client
@@ -35,10 +53,7 @@ func sendRequest(queryUrl string, data url.Values, returnStructure interface{}) 
 		return
 	}
 
-	// Unmarshall the JSON response into the structure provided by the caller
-	err = json.NewDecoder(resp.Body).Decode(returnStructure)
-	if err != nil {
-		return
-	}
+	// Return the response body
+	body = resp.Body
 	return
 }
