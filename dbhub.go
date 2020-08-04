@@ -49,8 +49,8 @@ func (c Connection) Branches(dbowner, dbname string) (branches map[string]com.Br
 	err = sendRequestJSON(queryUrl, data, &response)
 
 	// Extract information for return values
-	branches = response.Entries
-	defaultBranch = response.Default
+	branches = response.Branches
+	defaultBranch = response.DefaultBranch
 	return
 }
 
