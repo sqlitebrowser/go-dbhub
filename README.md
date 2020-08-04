@@ -10,6 +10,7 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 * Run read-only queries (eg SELECT statements) on databases, returning the results as JSON
 * List the names of tables, views, and indexes present in a database
 * List the columns present in a table or view, along with their details
+* List the branches of a database
 * Generate diffs between two databases, or database revisions
 
 ### Still to do
@@ -131,6 +132,7 @@ ORDER BY table1.id;
 * [List views](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_views/main.go) - List the views present in a database
 * [List indexes](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_indexes/main.go) - List the indexes present in a database
 * [Retrieve column details](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/column_details/main.go) - Retrieve the details of columns in a table
+* [List branches](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_branches/main.go) - List all branches of a database
 * [Generate diff between two revisions](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/diff_commits/main.go) - Figure out the differences between two databases or two versions of one database
 
 Please try it out, submits PRs to extend or fix things, and report any weirdness or bugs you encounter. :smile:
