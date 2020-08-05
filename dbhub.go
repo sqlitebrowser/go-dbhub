@@ -63,6 +63,17 @@ func (c Connection) Columns(dbOwner, dbName string, ident Identifier, table stri
 	return
 }
 
+// Commits returns the details of all commits for a database
+func (c Connection) Commits(dbOwner, dbName string) (commits map[string]com.CommitEntry, err error) {
+	// Prepare the API parameters
+	data := c.PrepareVals(dbOwner, dbName, Identifier{})
+
+	// Fetch the commits
+	queryUrl := c.Server + "/v1/commits"
+	err = sendRequestJSON(queryUrl, data, &commits)
+	return
+}
+
 // Databases returns the list of databases in your account
 func (c Connection) Databases() (databases []string, err error) {
 	// Prepare the API parameters
