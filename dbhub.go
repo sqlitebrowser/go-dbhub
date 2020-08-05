@@ -151,6 +151,17 @@ func (c Connection) Indexes(dbOwner, dbName string, ident Identifier) (idx map[s
 	return
 }
 
+// Metadata returns the metadata (branches, releases, tags, commits, etc) for the database
+func (c Connection) Metadata(dbOwner, dbName string) (meta com.MetadataResponseContainer, err error) {
+	// Prepare the API parameters
+	data := c.PrepareVals(dbOwner, dbName, Identifier{})
+
+	// Fetch the list of databases
+	queryUrl := c.Server + "/v1/metadata"
+	err = sendRequestJSON(queryUrl, data, &meta)
+	return
+}
+
 // PrepareVals creates a url.Values container holding the API key, database owner, name, and database identifier.  The
 // url.Values container is then used for the requests to DBHub.io.
 func (c Connection) PrepareVals(dbOwner, dbName string, ident Identifier) (data url.Values) {
