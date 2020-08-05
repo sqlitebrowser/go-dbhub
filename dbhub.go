@@ -66,6 +66,18 @@ func (c Connection) Columns(dbOwner, dbName string, ident Identifier, table stri
 	return
 }
 
+// Databases returns the list of databases in your account
+func (c Connection) Databases() (databases []string, err error) {
+	// Prepare the API parameters
+	data := url.Values{}
+	data.Set("apikey", c.APIKey)
+
+	// Fetch the list of databases
+	queryUrl := c.Server + "/v1/databases"
+	err = sendRequestJSON(queryUrl, data, &databases)
+	return
+}
+
 // Diff returns the differences between two commits of two databases, or if the details on the second database are left empty,
 // between two commits of the same database. You can also specify the merge strategy used for the generated SQL statements.
 func (c Connection) Diff(dbOwnerA, dbNameA string, identA Identifier, dbOwnerB, dbNameB string, identB Identifier, merge MergeStrategy) (diffs com.Diffs, err error) {

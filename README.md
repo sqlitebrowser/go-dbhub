@@ -8,6 +8,7 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 ### What works now
 
 * Run read-only queries (eg SELECT statements) on databases, returning the results as JSON
+* Return the list of databases in your account
 * List the names of tables, views, and indexes present in a database
 * List the columns present in a table or view, along with their details
 * List the branches of a database
@@ -18,7 +19,6 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 
 * Tests for each function
 * Retrieve index details for a database
-* Return the list of available databases
 * Upload a complete database
 * Retrieve database commit history details (size, branch, commit list, whatever else is useful)
 * Investigate what would be needed for this to work through the Go SQL API
@@ -128,6 +128,7 @@ ORDER BY table1.id;
 ### Further examples
 
 * [SQL Query](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/sql_query/main.go) - Run a SQL query, return the results as JSON
+* [List databases](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_databases/main.go) - List the databases present in your account
 * [List tables](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_tables/main.go) - List the tables present in a database
 * [List views](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_views/main.go) - List the views present in a database
 * [List indexes](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_indexes/main.go) - List the indexes present in a database
