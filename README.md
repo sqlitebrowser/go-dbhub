@@ -70,11 +70,12 @@ Tables:
 showBlobs := false
 
 // Run the query
-result, err := db.Query("justinclift", "Join Testing.sqlite", dbhub.Identifier{Branch: "master"}, showBlobs,
+result, err := db.Query("justinclift", "Join Testing.sqlite",
+    dbhub.Identifier{ Branch: "master" }, showBlobs,
     `SELECT table1.Name, table2.value
-        FROM table1 JOIN table2
-        USING (id)
-        ORDER BY table1.id`)
+    FROM table1 JOIN table2
+    USING (id)
+    ORDER BY table1.id`)
 if err != nil {
     log.Fatal(err)
 }
@@ -93,13 +94,16 @@ Query results (JSON):
 // The databases we want to see differences for
 db1Owner := "justinclift"
 db1Name := "Join Testing.sqlite"
-db1Commit := dbhub.Identifier{CommitID: "c82ba65add364427e9af3f540be8bf98e8cd6bdb825b07c334858e816c983db0"}
+db1Commit := dbhub.Identifier{
+    CommitID: "c82ba65add364427e9af3f540be8bf98e8cd6bdb825b07c334858e816c983db0" }
 db2Owner := ""
 db2Name := ""
-db2Commit := dbhub.Identifier{CommitID: "adf78104254ece17ff40dab80ae800574fa5d429a4869792a64dcf2027cd9cd9"}
+db2Commit := dbhub.Identifier{
+    CommitID: "adf78104254ece17ff40dab80ae800574fa5d429a4869792a64dcf2027cd9cd9" }
 
 // Create the diff
-diffs, err := db.Diff(db1Owner, db1Name, db1Commit, db2Owner, db2Name, db2Commit, dbhub.PreservePkMerge)
+diffs, err := db.Diff(db1Owner, db1Name, db1Commit, db2Owner, db2Name, db2Commit,
+    dbhub.PreservePkMerge)
 if err != nil {
     log.Fatal(err)
 }
