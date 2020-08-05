@@ -11,7 +11,7 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 * List the databases in your account
 * List the names of tables, views, and indexes present in a database
 * List the columns present in a table or view, along with their details
-* List the branches of a database
+* List the branches, releases, and tags for a database
 * Generate diffs between two databases, or database revisions
 * Download a complete database
 * Download the database metadata (size, branches, commit list, etc.)
@@ -135,6 +135,8 @@ ORDER BY table1.id;
 * [List indexes](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_indexes/main.go) - List the indexes present in a database
 * [Retrieve column details](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/column_details/main.go) - Retrieve the details of columns in a table
 * [List branches](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_branches/main.go) - List all branches of a database
+* [List releases](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_releases/main.go) - Display the releases for a database
+* [List tags](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_tags/main.go) - Display the tags for a database
 * [Generate diff between two revisions](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/diff_commits/main.go) - Figure out the differences between two databases or two versions of one database
 * [Download database](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/download_database/main.go) - Download the complete database file
 * [Retrieve metadata](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/metadata/main.go) - Download the database metadata (size, branches, commit list, etc)

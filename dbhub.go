@@ -36,12 +36,9 @@ func (c *Connection) ChangeServer(s string) {
 }
 
 // Branches returns a list of all available branches of a database along with the name of the default branch
-func (c Connection) Branches(dbowner, dbname string) (branches map[string]com.BranchEntry, defaultBranch string, err error) {
+func (c Connection) Branches(dbOwner, dbName string) (branches map[string]com.BranchEntry, defaultBranch string, err error) {
 	// Prepare the API parameters
-	data := url.Values{}
-	data.Set("apikey", c.APIKey)
-	data.Set("dbowner", dbowner)
-	data.Set("dbname", dbname)
+	data := c.PrepareVals(dbOwner, dbName, Identifier{})
 
 	// Fetch the list of branches and the default branch
 	var response com.BranchListResponseContainer
@@ -235,6 +232,17 @@ func (c Connection) Query(dbOwner, dbName string, ident Identifier, blobBase64 b
 	return
 }
 
+// Releases returns the details of all releases for a database
+func (c Connection) Releases(dbOwner, dbName string) (releases map[string]com.ReleaseEntry, err error) {
+	// Prepare the API parameters
+	data := c.PrepareVals(dbOwner, dbName, Identifier{})
+
+	// Fetch the releases
+	queryUrl := c.Server + "/v1/releases"
+	err = sendRequestJSON(queryUrl, data, &releases)
+	return
+}
+
 // Tables returns the list of tables in the database
 func (c Connection) Tables(dbOwner, dbName string, ident Identifier) (tbl []string, err error) {
 	// Prepare the API parameters
@@ -243,6 +251,17 @@ func (c Connection) Tables(dbOwner, dbName string, ident Identifier) (tbl []stri
 	// Fetch the list of tables
 	queryUrl := c.Server + "/v1/tables"
 	err = sendRequestJSON(queryUrl, data, &tbl)
+	return
+}
+
+// Tags returns the details of all tags for a database
+func (c Connection) Tags(dbOwner, dbName string) (tags map[string]com.TagEntry, err error) {
+	// Prepare the API parameters
+	data := c.PrepareVals(dbOwner, dbName, Identifier{})
+
+	// Fetch the tags
+	queryUrl := c.Server + "/v1/tags"
+	err = sendRequestJSON(queryUrl, data, &tags)
 	return
 }
 
