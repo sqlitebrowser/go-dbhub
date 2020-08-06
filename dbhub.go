@@ -149,7 +149,7 @@ func (c Connection) Download(dbOwner, dbName string, ident Identifier) (db io.Re
 }
 
 // Indexes returns the list of indexes present in the database, along with the table they belong to
-func (c Connection) Indexes(dbOwner, dbName string, ident Identifier) (idx map[string]string, err error) {
+func (c Connection) Indexes(dbOwner, dbName string, ident Identifier) (idx []com.APIJSONIndex, err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals(dbOwner, dbName, ident)
 

@@ -22,8 +22,11 @@ func main() {
 
 	// Display the retrieved list of indexes
 	fmt.Println("Indexes:")
-	for i, j := range indexes {
-		fmt.Printf("  * '%s' on table '%s'\n", i, j)
+	for _, j := range indexes {
+		fmt.Printf("  * '%s' on table '%s'\n", j.Name, j.Table)
+		for _, l := range j.Columns {
+			fmt.Printf("      Column name: %v\n", l.Name)
+			fmt.Printf("      Column ID: %v\n", l.CID)
+		}
 	}
-	fmt.Println()
 }
