@@ -18,6 +18,7 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 
 ### Still to do
 
+* A function for returning the web page URL of the database
 * Tests for each function
 * Have the backend server correctly use the incoming branch, release, and tag information
 * Upload a complete database
