@@ -11,11 +11,29 @@ import (
 
 // sendRequestJSON sends a request to DBHub.io, formatting the returned result as JSON
 func sendRequestJSON(queryUrl string, data url.Values, returnStructure interface{}) (err error) {
+	type JSONError struct {
+		Msg string `json:"error"`
+	}
+
 	// Send the request
 	var body io.ReadCloser
 	body, err = sendRequest(queryUrl, data)
 	if err != nil {
+		if body != nil {
+			defer body.Close()
+
+			// If there's useful error info in the returned JSON, return that as the error message
+			var z JSONError
+			err = json.NewDecoder(body).Decode(&z)
+			if err != nil {
+				return
+			}
+			err = fmt.Errorf("%s", z.Msg)
+		}
 		return
+	}
+	if body != nil {
+		defer body.Close()
 	}
 
 	// Unmarshall the JSON response into the structure provided by the caller
@@ -43,17 +61,15 @@ func sendRequest(queryUrl string, data url.Values) (body io.ReadCloser, err erro
 		return
 	}
 
+	// Return the response body, even if an error occured.  This lets us return useful error information provided as
+	// JSON in the body of the message
+	body = resp.Body
+
 	// Basic error handling, based on the status code received from the server
 	if resp.StatusCode != 200 {
 		// The returned status code indicates something went wrong
 		err = fmt.Errorf(resp.Status)
-		if resp.Body != nil {
-			defer resp.Body.Close()
-		}
 		return
 	}
-
-	// Return the response body
-	body = resp.Body
 	return
 }
