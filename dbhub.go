@@ -286,3 +286,14 @@ func (c Connection) Views(dbOwner, dbName string, ident Identifier) (views []str
 	err = sendRequestJSON(queryUrl, data, &views)
 	return
 }
+
+// Webpage returns the URL of the database file in the webUI.  eg. for web browsers
+func (c Connection) Webpage(dbOwner, dbName string) (webPage com.WebpageResponseContainer, err error) {
+	// Prepare the API parameters
+	data := c.PrepareVals(dbOwner, dbName, Identifier{})
+
+	// Fetch the releases
+	queryUrl := c.Server + "/v1/webpage"
+	err = sendRequestJSON(queryUrl, data, &webPage)
+	return
+}

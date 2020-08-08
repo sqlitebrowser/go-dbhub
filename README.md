@@ -15,10 +15,10 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 * Generate diffs between two databases, or database revisions
 * Download a complete database
 * Download the database metadata (size, branches, commit list, etc.)
+* Retrieve the web page URL of the database
 
 ### Still to do
 
-* A function for returning the web page URL of the database
 * Tests for each function
 * Have the backend server correctly use the incoming branch, release, and tag information
 * Upload a complete database
@@ -146,5 +146,6 @@ ORDER BY table1.id;
 * [Generate diff between two revisions](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/diff_commits/main.go) - Figure out the differences between two databases or two versions of one database
 * [Download database](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/download_database/main.go) - Download the complete database file
 * [Retrieve metadata](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/metadata/main.go) - Download the database metadata (size, branches, commit list, etc)
+* [Web_page](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/webpage/main.go) - Get the URL of the database file in the webUI.  eg. for web browsers
 
 Please try it out, submits PRs to extend or fix things, and report any weirdness or bugs you encounter. :smile:

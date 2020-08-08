@@ -25,5 +25,4 @@ func main() {
 	for _, j := range views {
 		fmt.Printf("  * %s\n", j)
 	}
-	fmt.Println()
 }
