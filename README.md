@@ -146,6 +146,6 @@ ORDER BY table1.id;
 * [Generate diff between two revisions](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/diff_commits/main.go) - Figure out the differences between two databases or two versions of one database
 * [Download database](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/download_database/main.go) - Download the complete database file
 * [Retrieve metadata](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/metadata/main.go) - Download the database metadata (size, branches, commit list, etc)
-* [Web_page](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/webpage/main.go) - Get the URL of the database file in the webUI.  eg. for web browsers
+* [Web page](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/webpage/main.go) - Get the URL of the database file in the webUI.  eg. for web browsers
 
 Please try it out, submits PRs to extend or fix things, and report any weirdness or bugs you encounter. :smile:
