@@ -8,20 +8,19 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 ### What works now
 
 * Run read-only queries (eg SELECT statements) on databases, returning the results as JSON
+* Upload and download your databases
 * List the databases in your account
 * List the tables, views, and indexes present in a database
 * List the columns in a table, view or index, along with their details
 * List the branches, releases, tags, and commits for a database
 * Generate diffs between two databases, or database revisions
-* Download a complete database
 * Download the database metadata (size, branches, commit list, etc.)
-* Retrieve the web page URL of the database
+* Retrieve the web page URL of a database
 
 ### Still to do
 
-* Tests for each function
 * Have the backend server correctly use the incoming branch, release, and tag information
-* Upload a complete database
+* Tests for each function
 * Investigate what would be needed for this to work through the Go SQL API
 * Anything else people suggest and seems like a good idea :smile:
 

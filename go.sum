@@ -123,8 +123,8 @@ github.com/sourcegraph/syntaxhighlight v0.0.0-20170531221838-bd320f5d308e h1:qpG
 github.com/sourcegraph/syntaxhighlight v0.0.0-20170531221838-bd320f5d308e/go.mod h1:HuIsMU8RRBOtsCgI77wP899iHVBQpCmg4ErYMZB+2IA=
 github.com/sqlitebrowser/blackfriday v9.0.0+incompatible h1:ddH/UyzasooYgGIblVU4R8DdmBuJ7QXLvSqX/0chZv4=
 github.com/sqlitebrowser/blackfriday v9.0.0+incompatible/go.mod h1:/zga9sqpWzcewuI83AO5JZwe9+6F9GgPDdqqdNNEL/0=
-github.com/sqlitebrowser/dbhub.io v0.0.12 h1:G5qd4qQGCVB8/Seh0e+cBvaYkpnoGnWQuxPEr4B09ZE=
-github.com/sqlitebrowser/dbhub.io v0.0.12/go.mod h1:GgZi8wkjdRGkkUVgYNuZp5i+Yps3jGt/jjRuLKRi6Po=
+github.com/sqlitebrowser/dbhub.io v0.0.13 h1:R29VyPD6LZmtsDicbK4ICnW4RnhiqN3c8+vvKS8RzHM=
+github.com/sqlitebrowser/dbhub.io v0.0.13/go.mod h1:GgZi8wkjdRGkkUVgYNuZp5i+Yps3jGt/jjRuLKRi6Po=
 github.com/sqlitebrowser/github_flavored_markdown v0.0.0-20190120045821-b8cf8f054e47 h1:s0+Ea95n1LrsKh6rtclU/9Qb2/5ofvnfnR7gDDiFTw8=
 github.com/sqlitebrowser/github_flavored_markdown v0.0.0-20190120045821-b8cf8f054e47/go.mod h1:8vPIKi5FslxCXEgfQxrFtWfdclGy6VWAc9NA1ZTYCJg=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

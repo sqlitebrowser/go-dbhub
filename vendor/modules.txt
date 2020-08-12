@@ -63,7 +63,7 @@ github.com/sourcegraph/annotate
 github.com/sourcegraph/syntaxhighlight
 # github.com/sqlitebrowser/blackfriday v9.0.0+incompatible
 github.com/sqlitebrowser/blackfriday
-# github.com/sqlitebrowser/dbhub.io v0.0.12
+# github.com/sqlitebrowser/dbhub.io v0.0.13
 ## explicit
 github.com/sqlitebrowser/dbhub.io/common
 # github.com/sqlitebrowser/github_flavored_markdown v0.0.0-20190120045821-b8cf8f054e47
