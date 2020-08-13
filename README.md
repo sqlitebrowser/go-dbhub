@@ -22,6 +22,7 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 * Have the backend server correctly use the incoming branch, release, and tag information
 * Tests for each function
 * Investigate what would be needed for this to work through the Go SQL API
+  * Probably need to improve the Query approach, to at least support placeholders and argument parameters
 * Anything else people suggest and seems like a good idea :smile:
 
 ### Requirements
@@ -143,7 +144,9 @@ ORDER BY table1.id;
 * [List tags](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_tags/main.go) - Display the tags for a database
 * [List commits](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/list_commits/main.go) - Display the commits for a database
 * [Generate diff between two revisions](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/diff_commits/main.go) - Figure out the differences between two databases or two versions of one database
+* [Upload database](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/upload/main.go) - Upload a new database file
 * [Download database](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/download_database/main.go) - Download the complete database file
+* [Delete database](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/delete_database/main.go) - Delete a database
 * [Retrieve metadata](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/metadata/main.go) - Download the database metadata (size, branches, commit list, etc)
 * [Web page](https://github.com/sqlitebrowser/go-dbhub/blob/master/examples/webpage/main.go) - Get the URL of the database file in the webUI.  eg. for web browsers
 

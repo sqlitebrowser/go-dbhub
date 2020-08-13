@@ -33,9 +33,11 @@ func sendRequestJSON(queryUrl string, data url.Values, returnStructure interface
 	}
 
 	// Unmarshall the JSON response into the structure provided by the caller
-	err = json.NewDecoder(body).Decode(returnStructure)
-	if err != nil {
-		return
+	if returnStructure != nil {
+		err = json.NewDecoder(body).Decode(returnStructure)
+		if err != nil {
+			return
+		}
 	}
 	return
 }

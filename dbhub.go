@@ -88,6 +88,17 @@ func (c Connection) Databases() (databases []string, err error) {
 	return
 }
 
+// Delete deletes a database in your account
+func (c Connection) Delete(dbName string) (err error) {
+	// Prepare the API parameters
+	data := c.PrepareVals("", dbName, Identifier{})
+
+	// Delete the database
+	queryUrl := c.Server + "/v1/delete"
+	err = sendRequestJSON(queryUrl, data, nil)
+	return
+}
+
 // Diff returns the differences between two commits of two databases, or if the details on the second database are left empty,
 // between two commits of the same database. You can also specify the merge strategy used for the generated SQL statements.
 func (c Connection) Diff(dbOwnerA, dbNameA string, identA Identifier, dbOwnerB, dbNameB string, identB Identifier, merge MergeStrategy) (diffs com.Diffs, err error) {
@@ -181,8 +192,12 @@ func (c Connection) PrepareVals(dbOwner, dbName string, ident Identifier) (data 
 	// Prepare the API parameters
 	data = url.Values{}
 	data.Set("apikey", c.APIKey)
-	data.Set("dbowner", dbOwner)
-	data.Set("dbname", dbName)
+	if dbOwner != "" {
+		data.Set("dbowner", dbOwner)
+	}
+	if dbName != "" {
+		data.Set("dbname", dbName)
+	}
 	if ident.Branch != "" {
 		data.Set("branch", ident.Branch)
 	}
