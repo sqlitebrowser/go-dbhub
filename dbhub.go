@@ -96,6 +96,9 @@ func (c Connection) Delete(dbName string) (err error) {
 	// Delete the database
 	queryUrl := c.Server + "/v1/delete"
 	err = sendRequestJSON(queryUrl, data, nil)
+	if err != nil && err.Error() == "no rows in result set" { // Feels like a dodgy workaround
+		err = fmt.Errorf("Unknown database\n")
+	}
 	return
 }
 
@@ -191,7 +194,9 @@ func (c Connection) Metadata(dbOwner, dbName string) (meta com.MetadataResponseC
 func (c Connection) PrepareVals(dbOwner, dbName string, ident Identifier) (data url.Values) {
 	// Prepare the API parameters
 	data = url.Values{}
-	data.Set("apikey", c.APIKey)
+	if c.APIKey != "" {
+		data.Set("apikey", c.APIKey)
+	}
 	if dbOwner != "" {
 		data.Set("dbowner", dbOwner)
 	}
