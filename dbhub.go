@@ -158,9 +158,6 @@ func (c Connection) Download(dbOwner, dbName string, ident Identifier) (db io.Re
 	// Fetch the database file
 	queryUrl := c.Server + "/v1/download"
 	db, err = sendRequest(queryUrl, data)
-	if db != nil {
-		defer db.Close()
-	}
 	if err != nil {
 		return
 	}
