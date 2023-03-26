@@ -7,6 +7,9 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 
 ### What works now
 
+* (Experimental) Upload, delete, and list your "Live" databases
+* (Experimental) Execute INSERT/UPDATE/DELETE statements on your "Live" databases
+* (Experimental) List the tables, views, indexes, and columns in your "Live" databases
 * Run read-only queries (eg SELECT statements) on databases, returning the results as JSON
 * Upload and download your databases
 * List the databases in your account
@@ -27,8 +30,7 @@ A Go library for accessing and using SQLite databases stored remotely on DBHub.i
 
 ### Requirements
 
-* [Go](https://golang.org/dl/) version 1.14.x
-  * Older Go releases should be ok, but only Go 1.14.x has been tested (so far).
+* [Go](https://golang.org/dl/) version 1.17 or above
 * A DBHub.io API key
   * These can be generated in your [Settings](https://dbhub.io/pref) page, when logged in.
 
