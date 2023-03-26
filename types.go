@@ -4,8 +4,9 @@ import "time"
 
 // Connection is a simple container holding the API key and address of the DBHub.io server
 type Connection struct {
-	APIKey string `json:"api_key"`
-	Server string `json:"server"`
+	APIKey           string `json:"api_key"`
+	Server           string `json:"server"`
+	VerifyServerCert bool   `json:"verify_certificate"`
 }
 
 // Identifier holds information used to identify a specific commit, tag, release, or the head of a specific branch

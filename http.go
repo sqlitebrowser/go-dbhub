@@ -2,6 +2,7 @@ package dbhub
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,10 +13,10 @@ import (
 )
 
 // sendRequestJSON sends a request to DBHub.io, formatting the returned result as JSON
-func sendRequestJSON(queryUrl string, data url.Values, returnStructure interface{}) (err error) {
+func sendRequestJSON(queryUrl string, verifyServerCert bool, data url.Values, returnStructure interface{}) (err error) {
 	// Send the request
 	var body io.ReadCloser
-	body, err = sendRequest(queryUrl, data)
+	body, err = sendRequest(queryUrl, verifyServerCert, data)
 	if body != nil {
 		defer body.Close()
 	}
@@ -44,10 +45,18 @@ func sendRequestJSON(queryUrl string, data url.Values, returnStructure interface
 
 // sendRequest sends a request to DBHub.io.  It exists because http.PostForm() doesn't seem to have a way of changing
 // header values.
-func sendRequest(queryUrl string, data url.Values) (body io.ReadCloser, err error) {
+func sendRequest(queryUrl string, verifyServerCert bool, data url.Values) (body io.ReadCloser, err error) {
+	// Disable verification of the server https cert, if we've been told to
+	var client http.Client
+	if !verifyServerCert {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client = http.Client{Transport: tr}
+	}
+
 	var req *http.Request
 	var resp *http.Response
-	var client http.Client
 	req, err = http.NewRequest(http.MethodPost, queryUrl, strings.NewReader(data.Encode()))
 	if err != nil {
 		return
@@ -73,7 +82,7 @@ func sendRequest(queryUrl string, data url.Values) (body io.ReadCloser, err erro
 }
 
 // sendUpload uploads a database to DBHub.io.  It exists because the DBHub.io upload end point requires multi-part data
-func sendUpload(queryUrl string, data *url.Values, dbBytes *[]byte) (body io.ReadCloser, err error) {
+func sendUpload(queryUrl string, verifyServerCert bool, data *url.Values, dbBytes *[]byte) (body io.ReadCloser, err error) {
 	// Prepare the database file byte stream
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
@@ -108,10 +117,18 @@ func sendUpload(queryUrl string, data *url.Values, dbBytes *[]byte) (body io.Rea
 		return
 	}
 
+	// Disable verification of the server https cert, if we've been told to
+	var client http.Client
+	if !verifyServerCert {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client = http.Client{Transport: tr}
+	}
+
 	// Prepare the request
 	var req *http.Request
 	var resp *http.Response
-	var client http.Client
 	req, err = http.NewRequest(http.MethodPost, queryUrl, &buf)
 	if err != nil {
 		return

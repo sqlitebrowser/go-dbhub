@@ -14,15 +14,16 @@ import (
 )
 
 const (
-	version = "0.0.2"
+	version = "0.1.0"
 )
 
 // New creates a new DBHub.io connection object.  It doesn't connect to DBHub.io to do this.  Connection only occurs
 // when subsequent functions (eg Query()) are called.
 func New(key string) (Connection, error) {
 	c := Connection{
-		APIKey: key,
-		Server: "https://api.dbhub.io",
+		APIKey:           key,
+		Server:           "https://api.dbhub.io",
+		VerifyServerCert: true,
 	}
 	return c, nil
 }
@@ -37,6 +38,11 @@ func (c *Connection) ChangeServer(s string) {
 	c.Server = s
 }
 
+// ChangeVerifyServerCert changes whether to verify the server provided https certificate.  Useful for testing and development.
+func (c *Connection) ChangeVerifyServerCert(b bool) {
+	c.VerifyServerCert = b
+}
+
 // Branches returns a list of all available branches of a database along with the name of the default branch
 func (c Connection) Branches(dbOwner, dbName string) (branches map[string]com.BranchEntry, defaultBranch string, err error) {
 	// Prepare the API parameters
@@ -45,7 +51,7 @@ func (c Connection) Branches(dbOwner, dbName string) (branches map[string]com.Br
 	// Fetch the list of branches and the default branch
 	var response com.BranchListResponseContainer
 	queryUrl := c.Server + "/v1/branches"
-	err = sendRequestJSON(queryUrl, data, &response)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &response)
 
 	// Extract information for return values
 	branches = response.Branches
@@ -61,7 +67,7 @@ func (c Connection) Columns(dbOwner, dbName string, ident Identifier, table stri
 
 	// Fetch the list of columns
 	queryUrl := c.Server + "/v1/columns"
-	err = sendRequestJSON(queryUrl, data, &columns)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &columns)
 	return
 }
 
@@ -72,11 +78,11 @@ func (c Connection) Commits(dbOwner, dbName string) (commits map[string]com.Comm
 
 	// Fetch the commits
 	queryUrl := c.Server + "/v1/commits"
-	err = sendRequestJSON(queryUrl, data, &commits)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &commits)
 	return
 }
 
-// Databases returns the list of databases in your account
+// Databases returns the list of standard databases in your account
 func (c Connection) Databases() (databases []string, err error) {
 	// Prepare the API parameters
 	data := url.Values{}
@@ -84,7 +90,20 @@ func (c Connection) Databases() (databases []string, err error) {
 
 	// Fetch the list of databases
 	queryUrl := c.Server + "/v1/databases"
-	err = sendRequestJSON(queryUrl, data, &databases)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &databases)
+	return
+}
+
+// DatabasesLive returns the list of Live databases in your account
+func (c Connection) DatabasesLive() (databases []string, err error) {
+	// Prepare the API parameters
+	data := url.Values{}
+	data.Set("apikey", c.APIKey)
+	data.Set("live", "true")
+
+	// Fetch the list of databases
+	queryUrl := c.Server + "/v1/databases"
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &databases)
 	return
 }
 
@@ -95,7 +114,7 @@ func (c Connection) Delete(dbName string) (err error) {
 
 	// Delete the database
 	queryUrl := c.Server + "/v1/delete"
-	err = sendRequestJSON(queryUrl, data, nil)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, nil)
 	if err != nil && err.Error() == "no rows in result set" { // Feels like a dodgy workaround
 		err = fmt.Errorf("Unknown database\n")
 	}
@@ -146,7 +165,7 @@ func (c Connection) Diff(dbOwnerA, dbNameA string, identA Identifier, dbOwnerB, 
 
 	// Fetch the diffs
 	queryUrl := c.Server + "/v1/diff"
-	err = sendRequestJSON(queryUrl, data, &diffs)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &diffs)
 	return
 }
 
@@ -157,10 +176,27 @@ func (c Connection) Download(dbOwner, dbName string, ident Identifier) (db io.Re
 
 	// Fetch the database file
 	queryUrl := c.Server + "/v1/download"
-	db, err = sendRequest(queryUrl, data)
+	db, err = sendRequest(queryUrl, c.VerifyServerCert, data)
 	if err != nil {
 		return
 	}
+	return
+}
+
+// Execute executes a SQL statement (INSERT, UPDATE, DELETE) on the chosen database.
+func (c Connection) Execute(dbOwner, dbName string, sql string) (rowsChanged int, err error) {
+	// Prepare the API parameters
+	data := c.PrepareVals(dbOwner, dbName, Identifier{})
+	data.Set("sql", base64.StdEncoding.EncodeToString([]byte(sql)))
+
+	// Run the query on the remote database
+	var execResponse com.ExecuteResponseContainer
+	queryUrl := c.Server + "/v1/execute"
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &execResponse)
+	if err != nil {
+		return
+	}
+	rowsChanged = execResponse.RowsChanged
 	return
 }
 
@@ -171,7 +207,7 @@ func (c Connection) Indexes(dbOwner, dbName string, ident Identifier) (idx []com
 
 	// Fetch the list of indexes
 	queryUrl := c.Server + "/v1/indexes"
-	err = sendRequestJSON(queryUrl, data, &idx)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &idx)
 	return
 }
 
@@ -182,11 +218,11 @@ func (c Connection) Metadata(dbOwner, dbName string) (meta com.MetadataResponseC
 
 	// Fetch the list of databases
 	queryUrl := c.Server + "/v1/metadata"
-	err = sendRequestJSON(queryUrl, data, &meta)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &meta)
 	return
 }
 
-// PrepareVals creates a url.Values container holding the API key, database owner, name, and database identifier.  The
+// PrepareVals creates an url.Values container holding the API key, database owner, name, and database identifier.  The
 // url.Values container is then used for the requests to DBHub.io.
 func (c Connection) PrepareVals(dbOwner, dbName string, ident Identifier) (data url.Values) {
 	// Prepare the API parameters
@@ -226,7 +262,7 @@ func (c Connection) Query(dbOwner, dbName string, ident Identifier, blobBase64 b
 	// Run the query on the remote database
 	var returnedData []com.DataRow
 	queryUrl := c.Server + "/v1/query"
-	err = sendRequestJSON(queryUrl, data, &returnedData)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &returnedData)
 	if err != nil {
 		return
 	}
@@ -272,7 +308,7 @@ func (c Connection) Releases(dbOwner, dbName string) (releases map[string]com.Re
 
 	// Fetch the releases
 	queryUrl := c.Server + "/v1/releases"
-	err = sendRequestJSON(queryUrl, data, &releases)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &releases)
 	return
 }
 
@@ -283,7 +319,7 @@ func (c Connection) Tables(dbOwner, dbName string, ident Identifier) (tbl []stri
 
 	// Fetch the list of tables
 	queryUrl := c.Server + "/v1/tables"
-	err = sendRequestJSON(queryUrl, data, &tbl)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &tbl)
 	return
 }
 
@@ -294,7 +330,7 @@ func (c Connection) Tags(dbOwner, dbName string) (tags map[string]com.TagEntry, 
 
 	// Fetch the tags
 	queryUrl := c.Server + "/v1/tags"
-	err = sendRequestJSON(queryUrl, data, &tags)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &tags)
 	return
 }
 
@@ -305,11 +341,11 @@ func (c Connection) Views(dbOwner, dbName string, ident Identifier) (views []str
 
 	// Fetch the list of views
 	queryUrl := c.Server + "/v1/views"
-	err = sendRequestJSON(queryUrl, data, &views)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &views)
 	return
 }
 
-// Upload uploads a new database, or a new revision of a database
+// Upload uploads a new standard database, or a new revision of a database
 func (c Connection) Upload(dbName string, info UploadInformation, dbBytes *[]byte) (err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals("", dbName, info.Ident)
@@ -357,7 +393,35 @@ func (c Connection) Upload(dbName string, info UploadInformation, dbBytes *[]byt
 	// Upload the database
 	var body io.ReadCloser
 	queryUrl := c.Server + "/v1/upload"
-	body, err = sendUpload(queryUrl, &data, dbBytes)
+	body, err = sendUpload(queryUrl, c.VerifyServerCert, &data, dbBytes)
+	if body != nil {
+		defer body.Close()
+	}
+	if err != nil {
+		if body != nil {
+			// If there's useful error info in the returned JSON, return that as the error message
+			var z JSONError
+			err = json.NewDecoder(body).Decode(&z)
+			if err != nil {
+				return
+			}
+			err = fmt.Errorf("%s", z.Msg)
+		}
+	}
+	return
+}
+
+// UploadLive uploads a new Live database
+func (c Connection) UploadLive(dbName string, dbBytes *[]byte) (err error) {
+	// Prepare the API parameters
+	data := c.PrepareVals("", dbName, Identifier{})
+	data.Del("dbowner") // The upload function always stores the database in the account of the API key user
+	data.Set("live", "true")
+
+	// Upload the database
+	var body io.ReadCloser
+	queryUrl := c.Server + "/v1/upload"
+	body, err = sendUpload(queryUrl, c.VerifyServerCert, &data, dbBytes)
 	if body != nil {
 		defer body.Close()
 	}
@@ -382,6 +446,6 @@ func (c Connection) Webpage(dbOwner, dbName string) (webPage com.WebpageResponse
 
 	// Fetch the releases
 	queryUrl := c.Server + "/v1/webpage"
-	err = sendRequestJSON(queryUrl, data, &webPage)
+	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &webPage)
 	return
 }
