@@ -3,8 +3,6 @@
 
 A Go library for accessing and using SQLite databases stored remotely on DBHub.io
 
-*This is an early stage work in progress*
-
 ### What works now
 
 * (Experimental) Upload, delete, and list your "Live" databases
