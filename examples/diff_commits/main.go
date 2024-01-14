@@ -14,7 +14,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Retrieve the differences between two commmits of the same database
+	// Retrieve the differences between two commits of the same database
 	user := "justinclift"
 	database := "DB4S download stats.sqlite"
 	commit1 := dbhub.Identifier{CommitID: "34cbeebfc347a09406707f4220cd40f60778692523d2e7d227ccd92f4125c9ea"}
