@@ -5,10 +5,12 @@ import (
 	"crypto/tls"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/pkg/fileutils"
 	sqlite "github.com/gwenn/gosqlite"
@@ -193,7 +195,7 @@ func TestDiff(t *testing.T) {
 	})
 
 	// Copy the database file to a temp location so we can make some changes
-	newFile := filepath.Join(t.TempDir(), "diff-"+common.RandomString(8)+".sqlite")
+	newFile := filepath.Join(t.TempDir(), "diff-"+randomString(8)+".sqlite")
 	_, err = fileutils.CopyFile(dbFile, newFile)
 	if err != nil {
 		t.Error(err)
@@ -270,7 +272,7 @@ func TestDiff(t *testing.T) {
 	assert.Len(t, diffs.Diff, 1)
 	assert.Equal(t, "foo", diffs.Diff[0].ObjectName)
 	assert.Equal(t, "table", diffs.Diff[0].ObjectType)
-	assert.Equal(t, common.DiffType("add"), diffs.Diff[0].Schema.ActionType)
+	assert.Equal(t, DiffType("add"), diffs.Diff[0].Schema.ActionType)
 	assert.Equal(t, "CREATE TABLE foo (first integer);", diffs.Diff[0].Schema.Sql)
 	assert.Equal(t, "", diffs.Diff[0].Schema.Before)
 	assert.Equal(t, "CREATE TABLE foo (first integer)", diffs.Diff[0].Schema.After)
@@ -288,7 +290,7 @@ func TestDiff(t *testing.T) {
 	assert.Len(t, diffs.Diff, 1)
 	assert.Equal(t, "foo", diffs.Diff[0].ObjectName)
 	assert.Equal(t, "table", diffs.Diff[0].ObjectType)
-	assert.Equal(t, common.DiffType("add"), diffs.Diff[0].Schema.ActionType)
+	assert.Equal(t, DiffType("add"), diffs.Diff[0].Schema.ActionType)
 	assert.Equal(t, "CREATE TABLE foo (first integer);", diffs.Diff[0].Schema.Sql)
 	assert.Equal(t, "", diffs.Diff[0].Schema.Before)
 	assert.Equal(t, "CREATE TABLE foo (first integer)", diffs.Diff[0].Schema.After)
@@ -306,7 +308,7 @@ func TestDiff(t *testing.T) {
 	assert.Len(t, diffs.Diff, 1)
 	assert.Equal(t, "foo", diffs.Diff[0].ObjectName)
 	assert.Equal(t, "table", diffs.Diff[0].ObjectType)
-	assert.Equal(t, common.DiffType("add"), diffs.Diff[0].Schema.ActionType)
+	assert.Equal(t, DiffType("add"), diffs.Diff[0].Schema.ActionType)
 	assert.Equal(t, "", diffs.Diff[0].Schema.Sql)
 	assert.Equal(t, "", diffs.Diff[0].Schema.Before)
 	assert.Equal(t, "CREATE TABLE foo (first integer)", diffs.Diff[0].Schema.After)
@@ -572,7 +574,7 @@ func TestUploadLive(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	dbB := filepath.Join(t.TempDir(), "diff-"+common.RandomString(8)+".sqlite")
+	dbB := filepath.Join(t.TempDir(), "diff-"+randomString(8)+".sqlite")
 	err = os.WriteFile(dbB, data, 0750)
 	if err != nil {
 		t.Error(err)
@@ -615,6 +617,17 @@ func TestWebpage(t *testing.T) {
 		return
 	}
 	assert.Equal(t, "https://docker-dev.dbhub.io:9443/default/Assembly Election 2017.sqlite", pageData.WebPage)
+}
+
+// randomString generates a random alphanumeric string of the desired length
+func randomString(length int) string {
+	rand.Seed(time.Now().UnixNano())
+	const alphaNum = "abcdefghijklmnopqrstuvwxyz0123456789"
+	randomString := make([]byte, length)
+	for i := range randomString {
+		randomString[i] = alphaNum[rand.Intn(len(alphaNum))]
+	}
+	return string(randomString)
 }
 
 // serverConnection is a utility function that sets up the API connection object to the test server, ready for use
