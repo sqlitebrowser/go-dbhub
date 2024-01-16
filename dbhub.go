@@ -9,8 +9,6 @@ import (
 	"io"
 	"net/url"
 	"time"
-
-	com "github.com/sqlitebrowser/dbhub.io/common"
 )
 
 const (
@@ -44,12 +42,12 @@ func (c *Connection) ChangeVerifyServerCert(b bool) {
 }
 
 // Branches returns a list of all available branches of a database along with the name of the default branch
-func (c Connection) Branches(dbOwner, dbName string) (branches map[string]com.BranchEntry, defaultBranch string, err error) {
+func (c Connection) Branches(dbOwner, dbName string) (branches map[string]BranchEntry, defaultBranch string, err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals(dbOwner, dbName, Identifier{})
 
 	// Fetch the list of branches and the default branch
-	var response com.BranchListResponseContainer
+	var response BranchListResponseContainer
 	queryUrl := c.Server + "/v1/branches"
 	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &response)
 
@@ -60,7 +58,7 @@ func (c Connection) Branches(dbOwner, dbName string) (branches map[string]com.Br
 }
 
 // Columns returns the column information for a given table or view
-func (c Connection) Columns(dbOwner, dbName string, ident Identifier, table string) (columns []com.APIJSONColumn, err error) {
+func (c Connection) Columns(dbOwner, dbName string, ident Identifier, table string) (columns []APIJSONColumn, err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals(dbOwner, dbName, ident)
 	data.Set("table", table)
@@ -72,7 +70,7 @@ func (c Connection) Columns(dbOwner, dbName string, ident Identifier, table stri
 }
 
 // Commits returns the details of all commits for a database
-func (c Connection) Commits(dbOwner, dbName string) (commits map[string]com.CommitEntry, err error) {
+func (c Connection) Commits(dbOwner, dbName string) (commits map[string]CommitEntry, err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals(dbOwner, dbName, Identifier{})
 
@@ -123,7 +121,7 @@ func (c Connection) Delete(dbName string) (err error) {
 
 // Diff returns the differences between two commits of two databases, or if the details on the second database are left empty,
 // between two commits of the same database. You can also specify the merge strategy used for the generated SQL statements.
-func (c Connection) Diff(dbOwnerA, dbNameA string, identA Identifier, dbOwnerB, dbNameB string, identB Identifier, merge MergeStrategy) (diffs com.Diffs, err error) {
+func (c Connection) Diff(dbOwnerA, dbNameA string, identA Identifier, dbOwnerB, dbNameB string, identB Identifier, merge MergeStrategy) (diffs Diffs, err error) {
 	// Prepare the API parameters
 	data := url.Values{}
 	data.Set("apikey", c.APIKey)
@@ -190,7 +188,7 @@ func (c Connection) Execute(dbOwner, dbName string, sql string) (rowsChanged int
 	data.Set("sql", base64.StdEncoding.EncodeToString([]byte(sql)))
 
 	// Run the query on the remote database
-	var execResponse com.ExecuteResponseContainer
+	var execResponse ExecuteResponseContainer
 	queryUrl := c.Server + "/v1/execute"
 	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &execResponse)
 	if err != nil {
@@ -201,7 +199,7 @@ func (c Connection) Execute(dbOwner, dbName string, sql string) (rowsChanged int
 }
 
 // Indexes returns the list of indexes present in the database, along with the table they belong to
-func (c Connection) Indexes(dbOwner, dbName string, ident Identifier) (idx []com.APIJSONIndex, err error) {
+func (c Connection) Indexes(dbOwner, dbName string, ident Identifier) (idx []APIJSONIndex, err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals(dbOwner, dbName, ident)
 
@@ -212,7 +210,7 @@ func (c Connection) Indexes(dbOwner, dbName string, ident Identifier) (idx []com
 }
 
 // Metadata returns the metadata (branches, releases, tags, commits, etc) for the database
-func (c Connection) Metadata(dbOwner, dbName string) (meta com.MetadataResponseContainer, err error) {
+func (c Connection) Metadata(dbOwner, dbName string) (meta MetadataResponseContainer, err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals(dbOwner, dbName, Identifier{})
 
@@ -260,7 +258,7 @@ func (c Connection) Query(dbOwner, dbName string, ident Identifier, blobBase64 b
 	data.Set("sql", base64.StdEncoding.EncodeToString([]byte(sql)))
 
 	// Run the query on the remote database
-	var returnedData []com.DataRow
+	var returnedData []DataRow
 	queryUrl := c.Server + "/v1/query"
 	err = sendRequestJSON(queryUrl, c.VerifyServerCert, data, &returnedData)
 	if err != nil {
@@ -274,10 +272,10 @@ func (c Connection) Query(dbOwner, dbName string, ident Identifier, blobBase64 b
 		var oneRow ResultRow
 		for _, l := range j {
 			switch l.Type {
-			case com.Float, com.Integer, com.Text:
+			case Float, Integer, Text:
 				// Float, integer, and text fields are added to the output
 				oneRow.Fields = append(oneRow.Fields, fmt.Sprint(l.Value))
-			case com.Binary:
+			case Binary:
 				// BLOB data is optionally Base64 encoded, or just skipped (using an empty string as placeholder)
 				if blobBase64 {
 					// Safety check. Make sure we've received a string
@@ -302,7 +300,7 @@ func (c Connection) Query(dbOwner, dbName string, ident Identifier, blobBase64 b
 }
 
 // Releases returns the details of all releases for a database
-func (c Connection) Releases(dbOwner, dbName string) (releases map[string]com.ReleaseEntry, err error) {
+func (c Connection) Releases(dbOwner, dbName string) (releases map[string]ReleaseEntry, err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals(dbOwner, dbName, Identifier{})
 
@@ -324,7 +322,7 @@ func (c Connection) Tables(dbOwner, dbName string, ident Identifier) (tbl []stri
 }
 
 // Tags returns the details of all tags for a database
-func (c Connection) Tags(dbOwner, dbName string) (tags map[string]com.TagEntry, err error) {
+func (c Connection) Tags(dbOwner, dbName string) (tags map[string]TagEntry, err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals(dbOwner, dbName, Identifier{})
 
@@ -440,7 +438,7 @@ func (c Connection) UploadLive(dbName string, dbBytes *[]byte) (err error) {
 }
 
 // Webpage returns the URL of the database file in the webUI.  eg. for web browsers
-func (c Connection) Webpage(dbOwner, dbName string) (webPage com.WebpageResponseContainer, err error) {
+func (c Connection) Webpage(dbOwner, dbName string) (webPage WebpageResponseContainer, err error) {
 	// Prepare the API parameters
 	data := c.PrepareVals(dbOwner, dbName, Identifier{})
 
